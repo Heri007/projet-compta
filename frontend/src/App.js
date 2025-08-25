@@ -22,7 +22,6 @@ import PoubellePage from './pages/PoubellePage';
 import CreationFacturePage from './pages/CreationFacturePage';
 import ListeDesVentesPage from './pages/ListeDesVentesPage';
 import ListeDesEncaissementsPage from './pages/ListeDesEncaissementsPage';
-// Nouveau : page combinée d'envoi
 import CreationEnvoiUniquePage from './pages/CreationEnvoiUniquePage';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -159,7 +158,12 @@ export default function App() {
       case 'entreprise': return <EntreprisePage />;
       case 'clients_ventes': return <ClientsVentesPage tiers={tiers} setPage={setPage} envois={envois} />;
       case 'fournisseurs_achats': return <FournisseursAchatsPage tiers={tiers} setPage={setPage} />;
-      case 'articles_stocks': return <ArticlesStocksPage refreshData={fetchData} />;
+      case 'articles_stocks': 
+        return <ArticlesStocksPage 
+                  articles={articles}     // Passer la liste d'articles
+                  mouvements={mouvements} // Passer la liste des mouvements
+                  refreshData={fetchData} 
+                />;
       case 'envoi': return <EnvoiPage envois={envois} tiers={tiers} setPage={setPage} />;
       case 'creation_envoi': 
       case 'creation_client_envoi':

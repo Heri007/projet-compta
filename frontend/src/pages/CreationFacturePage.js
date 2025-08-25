@@ -2,126 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import axios from 'axios';
+import InvoicePreview from '../components/InvoicePreview';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-// --- COMPOSANT D'APERÇU MIS À JOUR ---
-const InvoicePreview = ({ data }) => {
-  const formatCurrency = val =>
-    typeof val === 'number'
-      ? val.toLocaleString('fr-FR', { minimumFractionDigits: 2 })
-      : '0,00';
-
-  const totalFOB = data.lignes.reduce((sum, l) => sum + (l.quantite * l.prix || 0), 0);
-  const poidsNet = (parseFloat(data.poidsBrut || 0) - parseFloat(data.tare || 0)).toLocaleString('fr-FR');
-
-  return (
-    <div className="bg-white shadow-lg p-10 border border-gray-200 font-sans">
-      
-      {/* --- EN-TÊTE MODIFIÉ AVEC LOGO --- */}
-      <div className="flex justify-center items-center gap-4">
-        <div>
-          <img 
-            src="/logo.png" // Assurez-vous que logo.png est dans le dossier `public`
-            alt="VINA EXPORT SARLU Logo" 
-            className="h-20 w-auto" // Ajustez la taille ici si nécessaire
-          />
-        </div>
-        <div className="text-left">
-          <h2 className="text-2xl font-bold" style={{ color: '#06026a' }}>VINA EXPORT SARLU</h2>
-          <p className="text-xs">
-            SARLU au capital de 2.000.000 ariary - NIF : 4019364331 - STAT : 46625412025000948 - RCS MAHAJANGA : 2025B00036
-          </p>
-          <p className="text-xs">TEL : +261 37 58 370 49 - E-MAIL : heri.razafii@gmail.com</p>
-        </div>
-      </div>
-
-      <div className="w-full h-1 bg-gray-800 my-4"></div>
-
-      <h3 className="text-center text-xl font-bold my-6 tracking-widest">
-        {data.isConversionMode ? 'FACTURE' : 'FACTURE'}
-      </h3>
-
-      <div className="grid grid-cols-2 gap-x-8 text-sm mb-6">
-        <div className="space-y-1">
-          <p><strong>DATE :</strong> {data.dateFacture ? new Date(data.dateFacture).toLocaleDateString('fr-FR') : ''}</p>
-          <p><strong>FACTURE No. :</strong> {data.numeroFacture || 'Généré après enregistrement'}</p>
-          <p><strong>CLIENT & ADRESSE :</strong> {data.client?.nom || 'N/A'}</p>
-          <p><strong>NATURE DU PRODUIT :</strong> {data.natureProduit || '_________________'}</p>
-        </div>
-        <div className="space-y-1">
-          <p><strong>PAYS D’ORIGINE :</strong> {data.paysOrigine}</p>
-          <p><strong>COMPAGNIE MARITIME :</strong> {data.compagnieMaritime || '_________________'}</p>
-          <p><strong>PORT D’EMBARQUEMENT :</strong> {data.portEmbarquement || '_________________'}</p>
-          <p><strong>NOMENCLATURE DOUANIÈRE :</strong> {data.nomenclatureDouaniere || '_________________'}</p>
-        </div>
-      </div>
-
-      <table className="w-full text-sm mb-6 border-collapse">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="p-2 border border-gray-400 text-left">DÉSIGNATION</th>
-            <th className="p-2 border border-gray-400 text-center">QUANTITÉ</th>
-            <th className="p-2 border border-gray-400 text-right">PRIX UNIT USD – F.O.B</th>
-            <th className="p-2 border border-gray-400 text-right">TOTAL F.O.B USD</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.lignes.map(ligne => (
-            <tr key={ligne.id}>
-              <td className="p-2 border border-gray-400">{ligne.description}</td>
-              <td className="p-2 border border-gray-400 text-center">{ligne.quantite}</td>
-              <td className="p-2 border border-gray-400 text-right font-mono">{formatCurrency(ligne.prix)}</td>
-              <td className="p-2 border border-gray-400 text-right font-mono">{formatCurrency(ligne.quantite * ligne.prix)}</td>
-            </tr>
-          ))}
-          <tr className="font-bold bg-gray-100">
-            <td colSpan="3" className="p-2 border border-gray-400 text-right">TOTAL</td>
-            <td className="p-2 border border-gray-400 text-right font-mono">{formatCurrency(totalFOB)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="mt-8 text-sm">
-        <div className="space-y-1">
-          <p className="font-bold border-b pb-1 mb-2">NOS COORDONNÉES BANCAIRES</p>
-          <p><strong>Banque :</strong> Bank of Africa (B.O.A)</p>
-          <p><strong>Compte :</strong> 00009 03000 25040520003 55</p>
-          <p><strong>IBAN :</strong> MG46 0000 9030 0025 0405 2000 355</p>
-          <p><strong>SWIFT CODE :</strong> AFRIMGMGXXX</p>
-          <p><strong>DOMICILIATION <i>N° & Date</i> :</strong> {data.domiciliation || '_________________'}</p>
-        </div>
-
-        <div className="h-4"></div>
-        <div className="h-4"></div>
-
-        <div className="space-y-0.5">
-          <p>
-            <span className="font-semibold underline"><i>Poids Brut</i> :</span>
-            <span className="ml-2">{data.poidsBrut > 0 ? `${data.poidsBrut} Kg` : ''}</span>
-          </p>
-          <p>
-            <span className="font-semibold underline"><i>Tare</i> :</span>
-            <span className="ml-2">{data.tare > 0 ? `${data.tare} Kg` : ''}</span>
-          </p>
-          <p>
-            <span className="font-semibold underline"><i>Poids Net</i> :</span>
-            <span className="ml-2">{data.poidsBrut > 0 ? `${poidsNet} Kg` : ''}</span>
-          </p>
-        </div>
-      </div>
-
-      <div className="text-center mt-10 pt-4 border-t border-gray-300 text-xs text-gray-500">
-        <p><strong>Siège social :</strong> Lot Secteur 01 Centre A - AMBOROVY - MAHAJANGA 401 - MADAGASCAR</p>
-        <p>+261 37 58 370 49 | heri.razafii@gmail.com</p>
-      </div>
-    </div>
-  );
-};
-
 // --- PAGE PRINCIPALE MISE À JOUR ---
-const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, envois = [], articles = [] }) => {
-  const isConversionMode = Boolean(factureIdToConvert);
+const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, envois = [], articles = [] }) => {  const isConversionMode = Boolean(factureIdToConvert);
   const clients = useMemo(() => tiers.filter(t => t.type === 'Client'), [tiers]);
   
   // États du formulaire

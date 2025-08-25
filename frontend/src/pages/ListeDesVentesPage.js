@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import PageHeader from '../components/PageHeader';
-import InvoicePreview from '../components/Facture';
+import InvoicePreview from '../components/InvoicePreview';
 
 import axios from 'axios';
 

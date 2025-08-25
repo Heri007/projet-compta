@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import PageHeader from '../components/PageHeader';
-import InvoicePreview from '../components/Facture';
+import InvoicePreview from '../components/InvoicePreview';
 
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';

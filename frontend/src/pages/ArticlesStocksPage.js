@@ -1,43 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
+// ❌ On n'a plus besoin d'axios ou useEffect ici
+// import axios from 'axios';
+// import { useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import FormulaireArticle from '../components/FormulaireArticle';
 import FormulaireMouvementStock from '../components/FormulaireMouvementStock';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// ❌ On n'a plus besoin de l'URL de l'API ici
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-const ArticlesStocksPage = () => {
+const ArticlesStocksPage = ({ articles = [], mouvements = [], refreshData }) => {
     const [activeTab, setActiveTab] = useState('liste');
     const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [isMouvementModalOpen, setIsMouvementModalOpen] = useState(false);
 
-    const [articles, setArticles] = useState([]);
-    const [mouvements, setMouvements] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    const refreshData = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const [articlesRes, mouvementsRes] = await Promise.all([
-                axios.get(`${API_URL}/api/articles`),
-                axios.get(`${API_URL}/api/mouvements`),
-            ]);
-            setArticles(articlesRes.data);
-            setMouvements(mouvementsRes.data);
-        } catch (err) {
-            console.error("Erreur lors du rafraîchissement des données:", err);
-            setError("Impossible de charger les données.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        refreshData();
-    }, []);
+    // ❌ TOUTE LA LOGIQUE DE CHARGEMENT EST SUPPRIMÉE
+    // const [loading, setLoading] = useState(true);
+    // const [error, setError] = useState(null);
+    // const refreshData = async () => { ... };
+    // useEffect(() => { ... }, []);
 
     const formatNumber = (num) => (num ? parseFloat(num).toLocaleString('fr-FR') : '');
 
@@ -80,86 +62,68 @@ const ArticlesStocksPage = () => {
                 </div>
             </div>
 
-            {loading && <p className="p-4 text-center text-gray-500">Chargement des données...</p>}
-            {error && <p className="p-4 text-center text-red-600 bg-red-100 rounded-lg">{error}</p>}
-
-            {!loading && !error && (
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    {activeTab === 'liste' && (
-                        <table className="min-w-full divide-y divide-gray-200">
-                           <thead className="bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white">
-                                <tr>
-                                    <th className="px-4 py-3 text-left font-semibold">Code</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Désignation</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Unité</th>
-                                    <th className="px-4 py-3 text-center font-semibold">Qté en Stock</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Compte Stock</th>
+            {/* ❌ La gestion de `loading` et `error` est maintenant gérée par App.js */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                {activeTab === 'liste' && (
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Code</th>
+                                <th className="px-4 py-3 text-left font-semibold">Désignation</th>
+                                <th className="px-4 py-3 text-left font-semibold">Unité</th>
+                                <th className="px-4 py-3 text-center font-semibold">Qté en Stock</th>
+                                <th className="px-4 py-3 text-left font-semibold">Compte Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {articles.map(a => (
+                                <tr key={a.code} className="hover:bg-gray-50">
+                                    <td className="px-4 py-2 font-mono">{a.code}</td>
+                                    <td className="px-4 py-2 font-semibold">{a.designation}</td>
+                                    <td className="px-4 py-2">{a.unite || '-'}</td>
+                                    <td className="px-4 py-2 font-bold text-center">{(a.quantite || 0).toLocaleString('fr-FR')}</td>
+                                    <td className="px-4 py-2">{a.compte_stock || '-'}</td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {articles.map(a => (
-                                    <tr key={a.code} className="hover:bg-gray-50">
-                                        <td className="px-4 py-2 font-mono">{a.code}</td>
-                                        <td className="px-4 py-2 font-semibold">{a.designation}</td>
-                                        <td className="px-4 py-2">{a.unite || '-'}</td>
-                                        <td className="px-4 py-2 font-bold text-center">{(a.quantite || 0).toLocaleString('fr-FR')}</td>
-                                        <td className="px-4 py-2">{a.compte_stock || '-'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                            ))}
+                        </tbody>
+                    </table>
+                )}
 
-                    {/* --- TABLEAU DES MOUVEMENTS MIS À JOUR --- */}
-                    {activeTab === 'mouvements' && (
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white">
-                                <tr>
-                                    <th className="px-4 py-3 text-left font-semibold">Date</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Article</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Réf. Document</th>
-                                    <th className="px-4 py-3 text-right font-semibold">Entrée</th>
-                                    <th className="px-4 py-3 text-right font-semibold">Sortie</th>
+                {activeTab === 'mouvements' && (
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Date</th>
+                                <th className="px-4 py-3 text-left font-semibold">Article</th>
+                                <th className="px-4 py-3 text-left font-semibold">Réf. Document</th>
+                                <th className="px-4 py-3 text-right font-semibold">Entrée</th>
+                                <th className="px-4 py-3 text-right font-semibold">Sortie</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {mouvements.map(m => (
+                                <tr key={m.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-2">{new Date(m.date).toLocaleDateString('fr-FR')}</td>
+                                    <td className="px-4 py-2 font-semibold">{m.designation}</td>
+                                    <td className="px-4 py-2 font-mono text-xs">{m.document_ref || '-'}</td>
+                                    <td className="px-4 py-2 text-right font-mono text-green-600">
+                                        {m.type === 'Entrée' ? formatNumber(m.quantite) : ''}
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-mono text-red-600">
+                                        {m.type === 'Sortie' ? formatNumber(m.quantite) : ''}
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {mouvements.map(m => (
-                                    <tr key={m.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-2">{new Date(m.date).toLocaleDateString('fr-FR')}</td>
-                                        <td className="px-4 py-2 font-semibold">{m.designation}</td>
-                                        <td className="px-4 py-2 font-mono text-xs">{m.document_ref || '-'}</td>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
 
-                                        {/* Colonne Entrée */}
-                                        <td className="px-4 py-2 text-right font-mono text-green-600">
-                                            {m.type === 'Entrée' ? formatNumber(m.quantite) : ''}
-                                        </td>
-
-                                        {/* Colonne Sortie */}
-                                        <td className="px-4 py-2 text-right font-mono text-red-600">
-                                            {m.type === 'Sortie' ? formatNumber(m.quantite) : ''}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-            )}
-
-            {/* Modales */}
-            <Modal
-                isOpen={isArticleModalOpen}
-                onClose={() => setIsArticleModalOpen(false)}
-                title="Créer un Nouvel Article"
-            >
+            {/* Les modales reçoivent maintenant les props `refreshData` et `articles` de App.js */}
+            <Modal isOpen={isArticleModalOpen} onClose={() => setIsArticleModalOpen(false)} title="Créer un Nouvel Article">
                 <FormulaireArticle onClose={() => setIsArticleModalOpen(false)} refreshData={refreshData} />
             </Modal>
-
-            <Modal
-                isOpen={isMouvementModalOpen}
-                onClose={() => setIsMouvementModalOpen(false)}
-                title="Enregistrer un Mouvement de Stock"
-            >
+            <Modal isOpen={isMouvementModalOpen} onClose={() => setIsMouvementModalOpen(false)} title="Enregistrer un Mouvement de Stock">
                 <FormulaireMouvementStock onClose={() => setIsMouvementModalOpen(false)} refreshData={refreshData} articles={articles} />
             </Modal>
         </div>

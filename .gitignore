@@ -15,6 +15,8 @@ backend/build/
 backend/dist/
 backend/logs/
 backend/*.log
+backend/seed_articles.js
+backend/setub_db.js
 
 # ==============================
 # Frontend
@@ -22,6 +24,16 @@ backend/*.log
 frontend/node_modules/
 frontend/build/
 frontend/dist/
+frontend/essai.html
+frontend/html2json.py
+frontend/sortie.json
+frontend/valeurs_marchandes_mines.json
+
+# ==============================
+# Projet racine
+# ==============================
+command.txt
+table_db_caractéristiques.txt
 
 # ==============================
 # Environment / secrets

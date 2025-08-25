@@ -484,114 +484,58 @@ app.put('/api/factures/:id', async (req, res) => {
   }
 });
 
-// --- Route pour créer une facture ---
+// POST pour créer une nouvelle facture (Proforma)
 app.post('/api/factures', async (req, res) => {
+  console.log("Requête POST /api/factures reçue:", req.body);
   const client = await pool.connect();
   try {
-    console.log("=== Requête reçue /api/factures ===");
-    console.log("Body reçu :", req.body);
-
     const {
-      numero_facture,
-      date_facture,
-      libelle,
-      montant,
-      type_facture,
-      envoi_id,
-      compte_general,
-      code_tiers,
-      nature_produit,
-      pays_origine,
-      compagnie_maritime,
-      port_embarquement,
-      nomenclature_douaniere,
-      domiciliation,
-      poids_brut,
-      tare,
-      lignes // tableau de lignes [{ description, quantite, prix }]
+      date_facture, libelle, montant, envoi_id, code_tiers,
+      nature_produit, pays_origine, compagnie_maritime, port_embarquement,
+      nomenclature_douaniere, domiciliation, poids_brut, tare, 
+      lignes = [] // Récupérer le tableau de lignes
     } = req.body;
-
-    console.log("=== Données extraites ===");
-    console.log({
-      numero_facture,
-      date_facture,
-      libelle,
-      montant,
-      type_facture,
-      envoi_id,
-      compte_general,
-      code_tiers,
-      nature_produit,
-      pays_origine,
-      compagnie_maritime,
-      port_embarquement,
-      nomenclature_douaniere,
-      domiciliation,
-      poids_brut,
-      tare,
-      lignes
-    });
 
     await client.query('BEGIN');
 
-    const insertFactureQuery = `
+    // Étape 1 : Générer le numéro de facture (si vous utilisez la fonction du backend)
+    const numero_facture = await generateNumeroFacture('Proforma');
+
+    // Étape 2 : Insérer la facture principale et récupérer son ID
+    const factureRes = await client.query(`
       INSERT INTO factures (
-        numero_facture, date_facture, libelle, montant, type_facture,
-        envoi_id, compte_general, code_tiers, nature_produit, pays_origine,
-        compagnie_maritime, port_embarquement, nomenclature_douaniere, domiciliation,
-        poids_brut, tare
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-      RETURNING id
-    `;
-
-    const factureResult = await client.query(insertFactureQuery, [
-      numero_facture || null,
-      date_facture || null,
-      libelle || null,
-      montant || 0,
-      type_facture || 'Proforma',
-      envoi_id || null,
-      compte_general || null,
-      code_tiers || null,
-      nature_produit || null,
-      pays_origine || null,
-      compagnie_maritime || null,
-      port_embarquement || null,
-      nomenclature_douaniere || null,
-      domiciliation || null,
-      poids_brut || 0,
-      tare || 0
+        numero_facture, date_facture, libelle, montant, type_facture, envoi_id, code_tiers,
+        nature_produit, pays_origine, compagnie_maritime, port_embarquement,
+        nomenclature_douaniere, domiciliation, poids_brut, tare
+      ) VALUES ($1, $2, $3, $4, 'Proforma', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *
+    `, [
+      numero_facture, date_facture, libelle, montant, envoi_id, code_tiers,
+      nature_produit, pays_origine, compagnie_maritime, port_embarquement,
+      nomenclature_douaniere, domiciliation, poids_brut, tare
     ]);
+    const nouvelleFacture = factureRes.rows[0];
+    console.log("Facture principale créée avec l'ID:", nouvelleFacture.id);
 
-    const factureId = factureResult.rows[0].id;
-    console.log("Facture insérée avec id =", factureId);
-
-    // --- Insertion lignes ---
-    if (Array.isArray(lignes) && lignes.length > 0) {
-      console.log("Insertion lignes de facture :", lignes);
-      const insertLigneQuery = `
-        INSERT INTO lignes_factures (facture_id, description, quantite, prix)
-        VALUES ($1,$2,$3,$4)
-      `;
+    // --- CORRECTION : Utilisation du nom de table 'facture_lignes' ---
+    if (lignes && lignes.length > 0) {
+      console.log(`Insertion de ${lignes.length} lignes de facture...`);
       for (const ligne of lignes) {
-        console.log("Insertion ligne :", ligne);
-        await client.query(insertLigneQuery, [
-          factureId,
-          ligne.description || null,
-          ligne.quantite || 0,
-          ligne.prix || 0
-        ]);
+        await client.query(
+          'INSERT INTO facture_lignes (facture_id, description, quantite, prix, article_code) VALUES ($1, $2, $3, $4, $5)',
+          [nouvelleFacture.id, ligne.description, ligne.quantite, ligne.prix, ligne.articleCode || null]
+        );
       }
+      console.log("Toutes les lignes ont été insérées.");
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ success: true, message: "Facture créée avec succès", factureId });
+    res.status(201).json(nouvelleFacture);
 
-  } catch (error) {
+  } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Erreur création facture:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur lors de la création de la facture :', err);
+    res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
