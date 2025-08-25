@@ -1,0 +1,40 @@
+/* Dans src/index.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.autocomplete-container {
+  position: relative;
+}
+
+.autocomplete-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #d1d5db; /* gray-300 */
+  border-top-width: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  border-radius: 0 0 0.375rem 0.375rem; /* rounded-b-md */
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.autocomplete-item {
+  padding: 0.5rem 0.75rem; /* p-2 px-3 */
+  cursor: pointer;
+}
+
+.autocomplete-item:hover {
+  background-color: #eff6ff; /* blue-50 */
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* On reprend exactement le même fond que votre maquette */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}

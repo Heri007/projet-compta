@@ -1,0 +1,28 @@
+/* src/public/print.css */
+
+@media print {
+    /* Par défaut, on cache absolument tout */
+    body * {
+      visibility: hidden;
+    }
+  
+    /* Ensuite, on ne rend visible QUE la zone d'impression et tout ce qu'elle contient */
+    #print-area, #print-area * {
+      visibility: visible;
+    }
+  
+    /* On s'assure que la zone d'impression occupe toute la page, sans marges inutiles */
+    #print-area {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      padding: 0; /* On retire le padding pour l'impression */
+      margin: 0;
+    }
+  
+    /* On cache spécifiquement la barre d'outils de la modale pour qu'elle n'apparaisse pas sur le papier */
+    .no-print {
+      display: none !important;
+    }
+  }

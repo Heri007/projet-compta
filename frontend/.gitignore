@@ -1,0 +1,35 @@
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Backend build / dist ---
+backend/build/
+backend/dist/
+backend/logs/
+backend/*.log
+
+# --- Frontend build / dist ---
+frontend/build/
+frontend/dist/
+
+# --- Environnements (ne jamais push les secrets) ---
+.env
+.env.local
+.env.*.local
+
+# --- Tests ---
+coverage/
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+
+# --- IDE / éditeurs ---
+.vscode/
+.idea/
+
+# --- Divers ---
+*.bak
