@@ -3,14 +3,13 @@ import { genererDonneesBilanComplet } from '../utils/bilanHelper';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils'; 
 
-
-
-const BilanRow = ({ libelle, montant, isTotal = false, isSubTotal = false, indent = false }) => (
+// --- MIS À JOUR POUR AFFICHER LES 3 COLONNES ---
+const BilanRow = ({ libelle, montantBrut, amortissements, montantNet, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b hover:bg-blue-50"}>
         <td className={`p-1 ${indent ? 'pl-8' : ''}`}>{libelle}</td>
-        <td className="p-1 text-right font-mono">{formatNumber(montant)}</td>
-        <td className="p-1 text-right font-mono bg-gray-50">#VALUE!</td>
-        <td className="p-1 text-right font-mono">{formatNumber(montant)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(montantBrut)}</td>
+        <td className="p-1 text-right font-mono bg-gray-50">{formatNumber(amortissements)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(montantNet)}</td>
     </tr>
 );
 
@@ -33,15 +32,15 @@ const BilanActif = ({ data }) => (
                         {Object.entries(grandeMasseData.sous_masses).map(([sousMasse, sousData]) => (
                             <React.Fragment key={sousMasse}>
                                 <tr><td colSpan="4" className="p-1 font-semibold italic">{sousMasse}</td></tr>
-                                {sousData.lignes.map(ligne => <BilanRow key={ligne.libelle} libelle={ligne.libelle} montant={ligne.montantBrut} indent={true} />)}
-                                <BilanRow libelle={`Total ${sousMasse}`} montant={sousData.total} isSubTotal={true} />
+                                {sousData.lignes.map(ligne => <BilanRow key={ligne.libelle} {...ligne} indent={true} />)}
+                                <BilanRow libelle={`Total ${sousMasse}`} montantBrut={sousData.totalBrut} amortissements={sousData.totalAmort} montantNet={sousData.totalNet} isSubTotal={true} />
                             </React.Fragment>
                         ))}
-                        <BilanRow libelle={`TOTAL DE L'${grandeMasse}`} montant={grandeMasseData.total} isTotal={true} />
+                        <BilanRow libelle={`TOTAL DE L'${grandeMasse}`} montantBrut={grandeMasseData.totalBrut} amortissements={grandeMasseData.totalAmort} montantNet={grandeMasseData.totalNet} isTotal={true} />
                     </React.Fragment>
                 );
             })}
-            <BilanRow libelle="TOTAL DE L'ACTIF" montant={data.TOTAL} isTotal={true} />
+            <BilanRow libelle="TOTAL DE L'ACTIF" montantBrut={data.TOTAL.totalBrut} amortissements={data.TOTAL.totalAmort} montantNet={data.TOTAL.totalNet} isTotal={true} />
         </tbody>
     </table>
 );

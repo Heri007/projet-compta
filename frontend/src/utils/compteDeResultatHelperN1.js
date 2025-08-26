@@ -1,6 +1,8 @@
-// src/utils/compteDeResultatHelperN1.js
+// Fichier : frontend/src/utils/compteDeResultatHelperN1.js
 
-// Structure de mapping pour le Compte de Résultat (par nature), conforme au modèle.
+import { calculerSoldesFinaux } from './calculsComptables';
+
+// --- STRUCTURE (inchangée) ---
 const RESULTAT_STRUCTURE = {
     'Produits d\'exploitation': [
         { libelle: 'Ventes de marchandises', comptes: ['707'] },
@@ -31,101 +33,95 @@ const RESULTAT_STRUCTURE = {
     ],
 };
 
-/**
- * Calcule la somme des mouvements (crédit - débit) pour une période donnée.
- * @param {Array} ecrituresPeriode - Les écritures déjà filtrées pour la période.
- * @returns {Map} - Une Map des comptes avec la somme de leurs mouvements.
- */
-const calculerMouvementsPourPeriode = (ecrituresPeriode) => {
-    const mouvementsComptes = new Map();
-    ecrituresPeriode.forEach(e => {
-        const mouvementActuel = mouvementsComptes.get(e.compte_general) || 0;
-        // Pour le CR, un produit (crédit) est positif, une charge (débit) est négative.
-        const mouvement = parseFloat(e.credit || 0) - parseFloat(e.debit || 0);
-        mouvementsComptes.set(e.compte_general, mouvementActuel + mouvement);
-    });
-    return mouvementsComptes;
-};
 
 /**
- * Calcule les soldes et génère la structure complète du Compte de Résultat pour DEUX exercices (N et N-1).
- * @param {Array} ecritures - TOUTES les écritures, sans filtre de date.
- * @param {Date} dateClotureN - La date de clôture de l'exercice en cours (N).
+ * Génère le Compte de Résultat pour DEUX exercices (N et N-1).
  */
-export const genererDonneesResultatComparatif = (ecritures, dateClotureN) => {
-    // Déterminer les plages de dates pour N et N-1
+export const genererDonneesResultatComparatif = (comptes, ecritures, dateClotureN) => {
+    // Sécurité : si les données ne sont pas des tableaux, retourner une structure vide.
+    if (!Array.isArray(ecritures) || !Array.isArray(comptes)) {
+        return { sections: {}, soldes: {} };
+    }
+
+    // 1. Définir les plages de dates pour les exercices N et N-1
     const dateDebutN = new Date(dateClotureN.getFullYear(), 0, 1);
     const dateClotureN_1 = new Date(dateClotureN.getFullYear() - 1, 11, 31);
     const dateDebutN_1 = new Date(dateClotureN.getFullYear() - 1, 0, 1);
 
-    // Filtrer les écritures pour chaque période de 12 mois
-    const ecrituresN = ecritures.filter(e => { const d = new Date(e.date); return d >= dateDebutN && d <= dateClotureN; });
-    const ecrituresN_1 = ecritures.filter(e => { const d = new Date(e.date); return d >= dateDebutN_1 && d <= dateClotureN_1; });
+    // 2. Filtrer les écritures de gestion (classes 6 & 7) pour chaque période
+    const ecrituresN = ecritures.filter(e => {
+        const d = new Date(e.date);
+        const classe = String(e.compte_general)[0];
+        return (classe === '6' || classe === '7') && d >= dateDebutN && d <= dateClotureN;
+    });
+    const ecrituresN_1 = ecritures.filter(e => {
+        const d = new Date(e.date);
+        const classe = String(e.compte_general)[0];
+        return (classe === '6' || classe === '7') && d >= dateDebutN_1 && d <= dateClotureN_1;
+    });
 
-    // Calculer les mouvements pour chaque période
-    const mouvementsN = calculerMouvementsPourPeriode(ecrituresN);
-    const mouvementsN_1 = calculerMouvementsPourPeriode(ecrituresN_1);
+    // 3. Calculer les soldes pour chaque période avec la logique comptable correcte
+    const soldesN = calculerSoldesFinaux(comptes, ecrituresN);
+    const soldesN_1 = calculerSoldesFinaux(comptes, ecrituresN_1);
 
+    // 4. Construire la structure du Compte de Résultat
     const resultat = {};
-    
-    const calculerMouvementPourPrefixes = (prefixes, mouvementsMap) => {
+    const sections = {};
+    // --- CORRECTION : La variable inutile 'soldesIntermediaires' a été supprimée ---
+
+    const sommerSoldesPourPrefixes = (prefixes, soldesMap) => {
         let total = 0;
-        mouvementsMap.forEach((mouvement, numero) => {
-            if (prefixes.some(prefix => numero.startsWith(prefix))) {
-                total += mouvement;
+        soldesMap.forEach((solde, numeroCompte) => {
+            if (prefixes.some(prefix => numeroCompte.startsWith(prefix))) {
+                total += solde;
             }
         });
         return total;
     };
 
-    // --- CONSTRUCTION DU COMPTE DE RÉSULTAT ---
-    const sections = {};
-    let soldesIntermediaires = {};
-
     Object.entries(RESULTAT_STRUCTURE).forEach(([section, lignes]) => {
-        let totalSectionN = 0;
-        let totalSectionN1 = 0;
         const lignesCalculees = lignes.map(item => {
-            const montantN = calculerMouvementPourPrefixes(item.comptes, mouvementsN);
-            const montantN1 = calculerMouvementPourPrefixes(item.comptes, mouvementsN_1);
-            
-            // Les charges sont naturellement négatives, on les inverse pour l'affichage
-            const displayMontantN = section.startsWith('Charges') ? -montantN : montantN;
-            const displayMontantN1 = section.startsWith('Charges') ? -montantN1 : montantN1;
-
-            totalSectionN += displayMontantN;
-            totalSectionN1 += displayMontantN1;
-            
-            return { ...item, montantN: displayMontantN, montantN1: displayMontantN1 };
+            const montantN = sommerSoldesPourPrefixes(item.comptes, soldesN);
+            const montantN1 = sommerSoldesPourPrefixes(item.comptes, soldesN_1);
+            return { ...item, montantN, montantN1 };
         });
         sections[section] = lignesCalculees;
-        soldesIntermediaires[section] = { totalN: totalSectionN, totalN1: totalSectionN1 };
     });
 
-    // Calcul des résultats
-    const resultatExploitationN = soldesIntermediaires['Produits d\'exploitation'].totalN - soldesIntermediaires['Charges d\'exploitation'].totalN;
-    const resultatExploitationN1 = soldesIntermediaires['Produits d\'exploitation'].totalN1 - soldesIntermediaires['Charges d\'exploitation'].totalN1;
+    // 5. Calculer les soldes intermédiaires de gestion
+    const totalProduitsExploitationN = sections['Produits d\'exploitation'].reduce((sum, item) => sum + item.montantN, 0);
+    const totalProduitsExploitationN1 = sections['Produits d\'exploitation'].reduce((sum, item) => sum + item.montantN1, 0);
+    const totalChargesExploitationN = sections['Charges d\'exploitation'].reduce((sum, item) => sum + item.montantN, 0);
+    const totalChargesExploitationN1 = sections['Charges d\'exploitation'].reduce((sum, item) => sum + item.montantN1, 0);
+
+    const resultatExploitationN = totalProduitsExploitationN - totalChargesExploitationN;
+    const resultatExploitationN1 = totalProduitsExploitationN1 - totalChargesExploitationN1;
     
-    const resultatFinancierN = soldesIntermediaires['Produits financiers'].totalN - soldesIntermediaires['Charges financières'].totalN;
-    const resultatFinancierN1 = soldesIntermediaires['Produits financiers'].totalN1 - soldesIntermediaires['Charges financières'].totalN1;
+    const totalProduitsFinanciersN = sections['Produits financiers'].reduce((sum, item) => sum + item.montantN, 0);
+    const totalProduitsFinanciersN1 = sections['Produits financiers'].reduce((sum, item) => sum + item.montantN1, 0);
+    const totalChargesFinancieresN = sections['Charges financières'].reduce((sum, item) => sum + item.montantN, 0);
+    const totalChargesFinancieresN1 = sections['Charges financières'].reduce((sum, item) => sum + item.montantN1, 0);
+    
+    const resultatFinancierN = totalProduitsFinanciersN - totalChargesFinancieresN;
+    const resultatFinancierN1 = totalProduitsFinanciersN1 - totalChargesFinancieresN1;
 
     const resultatCourantAvantImpotN = resultatExploitationN + resultatFinancierN;
     const resultatCourantAvantImpotN1 = resultatExploitationN1 + resultatFinancierN1;
 
-    // Structure finale
+    // 6. Assembler la structure de données finale à retourner
     resultat.sections = sections;
     resultat.soldes = {
-        totalProduitsExploitationN: soldesIntermediaires['Produits d\'exploitation'].totalN,
-        totalProduitsExploitationN1: soldesIntermediaires['Produits d\'exploitation'].totalN1,
-        totalChargesExploitationN: soldesIntermediaires['Charges d\'exploitation'].totalN,
-        totalChargesExploitationN1: soldesIntermediaires['Charges d\'exploitation'].totalN1,
+        totalProduitsExploitationN,
+        totalProduitsExploitationN1,
+        totalChargesExploitationN,
+        totalChargesExploitationN1,
         resultatExploitationN,
         resultatExploitationN1,
         resultatFinancierN,
         resultatFinancierN1,
         resultatCourantAvantImpotN,
         resultatCourantAvantImpotN1,
-        beneficeOuPerteN: resultatCourantAvantImpotN, // Simplifié, sans impôts ni exceptionnel
+        beneficeOuPerteN: resultatCourantAvantImpotN,
         beneficeOuPerteN1: resultatCourantAvantImpotN1,
     };
 

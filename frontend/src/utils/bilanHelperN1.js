@@ -1,6 +1,9 @@
-// src/utils/bilanHelperN1.js
+// Fichier : frontend/src/utils/bilanHelperN1.js
 
-// Structure de mapping pour l'ACTIF (conforme au modèle)
+import { calculerSoldesFinaux } from './calculsComptables';
+import { genererDonneesResultat } from './compteDeResultatHelper'; // Nous avons besoin du résultat de l'exercice
+
+// --- STRUCTURES (inchangées) ---
 const BILAN_ACTIF_STRUCTURE = {
     'ACTIF IMMOBILISE': {
         'Immobilisations incorporelles': [ { libelle: 'Frais d\'établissement', comptes: ['201'] }, { libelle: 'Frais de recherche et de développement', comptes: ['203'] }, { libelle: 'Concessions, brevets, licences, marques...', comptes: ['205'] }, { libelle: 'Fonds commercial', comptes: ['207'] }, { libelle: 'Immobilisations incorporelles en cours', comptes: ['232'] }, { libelle: 'Avances et acomptes', comptes: ['237'] }, ],
@@ -13,8 +16,6 @@ const BILAN_ACTIF_STRUCTURE = {
         'Trésorerie': [ { libelle: 'Valeurs mobilières de placement', comptes: ['50'] }, { libelle: 'Banques, chèques postaux', comptes: ['512'] }, { libelle: 'Caisse', comptes: ['53'] }, ]
     }
 };
-
-// Structure de mapping pour le PASSIF (conforme au modèle)
 const BILAN_PASSIF_STRUCTURE = {
     'CAPITAUX PROPRES': {
         'Capital et réserves': [ { libelle: 'Capital', comptes: ['101'] }, { libelle: 'Primes d\'émission, de fusion, d\'apport', comptes: ['104'] }, { libelle: 'Écarts de réévaluation', comptes: ['105'] }, { libelle: 'Réserve légale', comptes: ['1061'] }, { libelle: 'Réserves statutaires ou contractuelles', comptes: ['1063'] }, { libelle: 'Autres réserves', comptes: ['1068'] }, { libelle: 'Report à nouveau', comptes: ['11'] }, ],
@@ -32,32 +33,9 @@ const BILAN_PASSIF_STRUCTURE = {
 
 
 /**
- * Calcule les soldes pour un jeu d'écritures donné.
- * @param {Array} comptes - Le plan comptable complet.
- * @param {Array} ecrituresPeriode - Les écritures filtrées pour la période.
- * @returns {Map} - Une Map des comptes avec leurs soldes calculés.
- */
-const calculerSoldesPourPeriode = (comptes, ecrituresPeriode) => {
-    const soldesComptes = new Map();
-    comptes.forEach(c => soldesComptes.set(c.numero_compte, { ...c, solde: 0 }));
-    ecrituresPeriode.forEach(e => {
-        if (soldesComptes.has(e.compte_general)) {
-            const soldeActuel = soldesComptes.get(e.compte_general).solde;
-            // Solde Actif = Débit - Crédit
-            soldesComptes.get(e.compte_general).solde = soldeActuel + parseFloat(e.debit || 0) - parseFloat(e.credit || 0);
-        }
-    });
-    return soldesComptes;
-};
-
-/**
- * Calcule les soldes et génère la structure complète du Bilan pour DEUX exercices (N et N-1).
- * @param {Array} comptes - Le plan comptable.
- * @param {Array} ecritures - TOUTES les écritures, sans filtre de date.
- * @param {Date} dateClotureN - La date de clôture de l'exercice en cours (N).
+ * Génère la structure complète du Bilan pour DEUX exercices (N et N-1).
  */
 export const genererDonneesBilanComparatif = (comptes, ecritures, dateClotureN) => {
-    // Déterminer la date de clôture de l'exercice précédent
     const dateClotureN_1 = new Date(dateClotureN);
     dateClotureN_1.setFullYear(dateClotureN.getFullYear() - 1);
 
@@ -65,21 +43,25 @@ export const genererDonneesBilanComparatif = (comptes, ecritures, dateClotureN) 
     const ecrituresN = ecritures.filter(e => new Date(e.date) <= dateClotureN);
     const ecrituresN_1 = ecritures.filter(e => new Date(e.date) <= dateClotureN_1);
 
-    // Calculer les soldes pour chaque période
-    const soldesN = calculerSoldesPourPeriode(comptes, ecrituresN);
-    const soldesN_1 = calculerSoldesPourPeriode(comptes, ecrituresN_1);
+    // Calculer les soldes pour chaque période avec la logique comptable correcte
+    const soldesN = calculerSoldesFinaux(comptes, ecrituresN);
+    const soldesN_1 = calculerSoldesFinaux(comptes, ecrituresN_1);
 
-    // Fonction de construction générique qui prend en compte les deux périodes
-    const construirePartieBilan = (structure, estPassif = false) => {
+    // Calculer le résultat de l'exercice pour N et N-1
+    const resultatN = genererDonneesResultat(comptes, ecrituresN);
+    const resultatN_1 = genererDonneesResultat(comptes, ecrituresN_1);
+
+    // Fonction de construction générique qui utilise les soldes déjà calculés
+    const construirePartieBilan = (structure) => {
         const resultat = {};
         let totalGeneralN = 0;
         let totalGeneralN1 = 0;
 
-        const calculerSoldePourPrefixes = (prefixes, soldesMap) => {
+        const sommerSoldesPourPrefixes = (prefixes, soldesMap) => {
             let total = 0;
-            soldesMap.forEach((compte, numero) => {
-                if (prefixes.some(prefix => numero.startsWith(prefix))) {
-                    total += compte.solde;
+            soldesMap.forEach((solde, numeroCompte) => {
+                if (prefixes.some(prefix => numeroCompte.startsWith(prefix))) {
+                    total += solde;
                 }
             });
             return total;
@@ -92,13 +74,18 @@ export const genererDonneesBilanComparatif = (comptes, ecritures, dateClotureN) 
 
             Object.keys(structure[grandeMasse]).forEach(sousMasse => {
                 const lignes = structure[grandeMasse][sousMasse].map(item => {
-                    let montantBrutN = calculerSoldePourPrefixes(item.comptes, soldesN);
-                    let montantBrutN1 = calculerSoldePourPrefixes(item.comptes, soldesN_1);
-                    
-                    if (estPassif) {
-                        montantBrutN = -montantBrutN;
-                        montantBrutN1 = -montantBrutN1;
+                    let montantBrutN, montantBrutN1;
+
+                    // --- INJECTION DU RÉSULTAT DE L'EXERCICE ---
+                    // C'est le lien crucial entre le Bilan et le Compte de Résultat
+                    if (item.comptes.includes('12')) {
+                        montantBrutN = resultatN.beneficeOuPerte;
+                        montantBrutN1 = resultatN_1.beneficeOuPerte;
+                    } else {
+                        montantBrutN = sommerSoldesPourPrefixes(item.comptes, soldesN);
+                        montantBrutN1 = sommerSoldesPourPrefixes(item.comptes, soldesN_1);
                     }
+                    
                     return { libelle: item.libelle, montantBrutN, montantBrutN1 };
                 });
 
@@ -121,8 +108,8 @@ export const genererDonneesBilanComparatif = (comptes, ecritures, dateClotureN) 
         return resultat;
     };
 
-    const actif = construirePartieBilan(BILAN_ACTIF_STRUCTURE, false);
-    const passif = construirePartieBilan(BILAN_PASSIF_STRUCTURE, true);
+    const actif = construirePartieBilan(BILAN_ACTIF_STRUCTURE);
+    const passif = construirePartieBilan(BILAN_PASSIF_STRUCTURE);
 
     return { actif, passif };
 };

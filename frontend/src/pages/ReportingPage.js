@@ -57,7 +57,7 @@ const headerGradientClass = "px-4 py-3 font-bold text-white bg-gradient-to-r fro
             case 'resultat_std':
                 return <CompteDeResultatPage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
             case 'resultat_comp':
-                return <CompteDeResultatComparatifPage ecritures={ecritures} dateCloture={dateCloture} />;
+                return <CompteDeResultatComparatifPage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
             case 'tft_indirect':
                 return <TableauFluxTresoreriePage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
             case 'tvcp_std':

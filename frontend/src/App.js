@@ -24,6 +24,7 @@ import ListeDesVentesPage from './pages/ListeDesVentesPage';
 import ListeDesEncaissementsPage from './pages/ListeDesEncaissementsPage';
 import CreationEnvoiUniquePage from './pages/CreationEnvoiUniquePage';
 import InvoicePage from './pages/InvoicePage';
+import ImmobilisationsPage from './pages/ImmobilisationsPage';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -172,6 +173,11 @@ export default function App() {
     const [mainPage, subId] = page.split('/');
 
     switch (mainPage) {
+      case 'immobilisations':
+                return <ImmobilisationsPage 
+                            planComptable={planComptable} 
+                            refreshData={fetchData} 
+                        />;
       case 'dashboard': return <Dashboard planComptable={planComptable} ecritures={ecritures} tiers={tiers} articles={articles} envois={envois} mouvements={mouvements} dateCloture={dateCloture} setPage={setPage} navigateToReport={navigateToReport} />;
       case 'entreprise': return <EntreprisePage />;
       case 'clients_ventes': return <ClientsVentesPage tiers={tiers} setPage={setPage} envois={envois} />;

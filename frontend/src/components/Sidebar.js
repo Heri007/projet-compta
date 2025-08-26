@@ -15,7 +15,8 @@ const Sidebar = ({ page, setPage, onEnvoiClick }) => {
     { id: 'reporting', icon: '📋', label: 'États & Reporting' },
     { id: 'import', icon: '📥', label: 'Import/Export' },
     { id: 'parametres', icon: '⚙️', label: 'Paramètres' },
-  ];
+    { id: 'immobilisations', icon: '🏛️', label: 'Immobilisations' },
+    ];
 
   const handleClick = (item) => {
     if (item.id === 'envoi') {

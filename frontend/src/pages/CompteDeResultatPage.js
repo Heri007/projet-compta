@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react'; // Ajout de useState pour l'aperçu
+import React, { useMemo, useState } from 'react';
 import { genererDonneesResultat } from '../utils/compteDeResultatHelper';
-import PrintPreviewModal from '../components/PrintPreviewModal'; // Import pour l'impression
+import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils'; 
 
 const ResultatRow = ({ libelle, montant, isTotal = false, isSubTotal = false, indent = false }) => (
@@ -10,19 +10,33 @@ const ResultatRow = ({ libelle, montant, isTotal = false, isSubTotal = false, in
     </tr>
 );
 
-// --- MODIFIÉ : Le composant accepte maintenant la prop 'dateCloture' ---
-const CompteDeResultatPage = ({ comptes, ecritures, dateCloture }) => {
-    // État pour la modale d'impression
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+// --- COMPOSANT D'AFFICHAGE SÉCURISÉ ---
+// Ce composant interne ne s'affichera que si les données sont valides
+const ResultatContent = ({ resultat, dateCloture }) => {
+    // --- CORRECTION MAJEURE : VÉRIFICATION DE SÉCURITÉ ---
+    // On s'assure que les sections existent avant de les utiliser, en fournissant un tableau vide par défaut.
+    const produitsExploitation = resultat.sections?.['Produits d\'exploitation'] || [];
+    const chargesExploitation = resultat.sections?.['Charges d\'exploitation'] || [];
+    const produitsFinanciers = resultat.sections?.['Produits financiers'] || [];
+    const chargesFinancieres = resultat.sections?.['Charges financières'] || [];
+    
+    // Calcul des totaux directement à partir des sections sécurisées
+    const totalProduitsExploitation = produitsExploitation.reduce((sum, item) => sum + item.montant, 0);
+    const totalChargesExploitation = chargesExploitation.reduce((sum, item) => sum + item.montant, 0);
+    const resultatExploitation = totalProduitsExploitation - totalChargesExploitation;
+    
+    const totalProduitsFinanciers = produitsFinanciers.reduce((sum, item) => sum + item.montant, 0);
+    const totalChargesFinancieres = chargesFinancieres.reduce((sum, item) => sum + item.montant, 0);
+    const resultatFinancier = totalProduitsFinanciers - totalChargesFinancieres;
 
-    const resultat = useMemo(() => genererDonneesResultat(comptes, ecritures), [comptes, ecritures]);
+    const resultatCourantAvantImpot = resultatExploitation + resultatFinancier;
+    const impotSurBenefice = 0; // Simplifié
+    const beneficeOuPerte = resultatCourantAvantImpot - impotSurBenefice;
 
-    // Contenu du rapport dans une variable pour être réutilisé (affichage et impression)
-    const ResultatContent = () => (
+    return (
         <>
             <div className="text-center mb-4">
                 <h2 className="text-2xl font-bold">Compte de Résultat Standard</h2>
-                {/* --- MODIFIÉ : La date est maintenant dynamique et formatée --- */}
                 <p>
                     Pour l'exercice clos le {dateCloture ? dateCloture.toLocaleDateString('fr-FR') : '[Date non définie]'} - Unité : ARIARY
                 </p>
@@ -36,36 +50,50 @@ const CompteDeResultatPage = ({ comptes, ecritures, dateCloture }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {/* --- PRODUITS D'EXPLOITATION --- */}
                     <tr className="bg-gray-100 font-semibold"><td colSpan="2" className="p-1">Produits d'exploitation</td></tr>
-                    {resultat.produitsExploitation.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
-                    <ResultatRow libelle="Total des produits d'exploitation" montant={resultat.totalProduitsExploitation} isSubTotal />
+                    {/* On peut maintenant mapper en toute sécurité */}
+                    {produitsExploitation.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
+                    <ResultatRow libelle="Total des produits d'exploitation" montant={totalProduitsExploitation} isSubTotal />
 
-                    {/* --- CHARGES D'EXPLOITATION --- */}
                     <tr className="bg-gray-100 font-semibold"><td colSpan="2" className="p-1">Charges d'exploitation</td></tr>
-                    {resultat.chargesExploitation.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
-                    <ResultatRow libelle="Total des charges d'exploitation" montant={resultat.totalChargesExploitation} isSubTotal />
+                    {chargesExploitation.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
+                    <ResultatRow libelle="Total des charges d'exploitation" montant={totalChargesExploitation} isSubTotal />
                     
-                    <ResultatRow libelle="RÉSULTAT D'EXPLOITATION" montant={resultat.resultatExploitation} isTotal />
+                    <ResultatRow libelle="RÉSULTAT D'EXPLOITATION" montant={resultatExploitation} isTotal />
                     
-                    {/* --- RÉSULTAT FINANCIER --- */}
                     <tr className="h-4"><td colSpan="2"></td></tr>
                     <tr className="bg-gray-100 font-semibold"><td colSpan="2" className="p-1">Résultat financier</td></tr>
-                    {resultat.produitsFinanciers.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
-                    {resultat.chargesFinancieres.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
-                    <ResultatRow libelle="RÉSULTAT FINANCIER" montant={resultat.resultatFinancier} isTotal />
+                    {produitsFinanciers.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
+                    {chargesFinancieres.map(item => <ResultatRow key={item.libelle} {...item} indent />)}
+                    <ResultatRow libelle="RÉSULTAT FINANCIER" montant={resultatFinancier} isTotal />
 
-                    {/* --- RÉSULTAT FINAL --- */}
                     <tr className="h-4"><td colSpan="2"></td></tr>
-                    <ResultatRow libelle="RÉSULTAT COURANT AVANT IMPÔTS" montant={resultat.resultatCourantAvantImpot} isTotal />
+                    <ResultatRow libelle="RÉSULTAT COURANT AVANT IMPÔTS" montant={resultatCourantAvantImpot} isTotal />
                     
-                    <ResultatRow libelle="Impôts sur les bénéfices" montant={resultat.impotSurBenefice} indent />
+                    <ResultatRow libelle="Impôts sur les bénéfices" montant={impotSurBenefice} indent />
                     <tr className="h-4"><td colSpan="2"></td></tr>
-                    <ResultatRow libelle="BÉNÉFICE OU PERTE" montant={resultat.beneficeOuPerte} isTotal />
+                    <ResultatRow libelle="BÉNÉFICE OU PERTE" montant={beneficeOuPerte} isTotal />
                 </tbody>
             </table>
         </>
     );
+};
+
+// --- COMPOSANT PRINCIPAL ---
+const CompteDeResultatPage = ({ comptes, ecritures, dateCloture }) => {
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+    // Le calcul des données reste le même
+    const resultatData = useMemo(() => genererDonneesResultat(comptes, ecritures), [comptes, ecritures]);
+
+    // --- SÉCURITÉ : On vérifie si les données sont prêtes avant de les afficher ---
+    if (!resultatData || !resultatData.sections) {
+        return (
+            <div className="p-8 text-center text-gray-500">
+                Calcul du compte de résultat...
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 h-full overflow-y-auto bg-white">
@@ -78,14 +106,14 @@ const CompteDeResultatPage = ({ comptes, ecritures, dateCloture }) => {
                 </button>
             </div>
             
-            <ResultatContent />
+            <ResultatContent resultat={resultatData} dateCloture={dateCloture} />
 
             <PrintPreviewModal 
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}
                 title="Aperçu avant impression - Compte de Résultat Standard"
             >
-                <ResultatContent />
+                <ResultatContent resultat={resultatData} dateCloture={dateCloture} />
             </PrintPreviewModal>
         </div>
     );

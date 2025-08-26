@@ -11,11 +11,19 @@ const ResultatRow = ({ libelle, montantN, montantN1, isTotal = false, isSubTotal
     </tr>
 );
 
-const CompteDeResultatComparatifPage = ({ ecritures, dateCloture }) => {
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const resultat = useMemo(() => genererDonneesResultatComparatif(ecritures, dateCloture), [ecritures, dateCloture]);
+// --- COMPOSANT D'AFFICHAGE SÉCURISÉ ---
+const ResultatContent = ({ resultat, dateCloture }) => {
+    // --- CORRECTION : VÉRIFICATION DE SÉCURITÉ ---
+    // On s'assure que les sections et les soldes existent, avec des valeurs par défaut.
+    const sections = resultat.sections || {};
+    const soldes = resultat.soldes || {};
 
-    const ResultatContent = () => (
+    const produitsExploitation = sections['Produits d\'exploitation'] || [];
+    const chargesExploitation = sections['Charges d\'exploitation'] || [];
+    const produitsFinanciers = sections['Produits financiers'] || [];
+    const chargesFinancieres = sections['Charges financières'] || [];
+
+    return (
         <>
             <div className="text-center mb-4">
                 <h2 className="text-2xl font-bold">Compte de Résultat Comparatif</h2>
@@ -32,31 +40,51 @@ const CompteDeResultatComparatifPage = ({ ecritures, dateCloture }) => {
                 </thead>
                 <tbody>
                     <tr className="bg-gray-100 font-semibold"><td colSpan="3" className="p-1">Produits d'exploitation</td></tr>
-                    {resultat.sections['Produits d\'exploitation'].map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
-                    <ResultatRow libelle="Total des produits d'exploitation" montantN={resultat.soldes.totalProduitsExploitationN} montantN1={resultat.soldes.totalProduitsExploitationN1} isSubTotal />
+                    {/* On peut maintenant mapper en toute sécurité */}
+                    {produitsExploitation.map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
+                    <ResultatRow libelle="Total des produits d'exploitation" montantN={soldes.totalProduitsExploitationN} montantN1={soldes.totalProduitsExploitationN1} isSubTotal />
 
                     <tr className="bg-gray-100 font-semibold"><td colSpan="3" className="p-1">Charges d'exploitation</td></tr>
-                    {resultat.sections['Charges d\'exploitation'].map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
-                    <ResultatRow libelle="Total des charges d'exploitation" montantN={resultat.soldes.totalChargesExploitationN} montantN1={resultat.soldes.totalChargesExploitationN1} isSubTotal />
+                    {chargesExploitation.map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
+                    <ResultatRow libelle="Total des charges d'exploitation" montantN={soldes.totalChargesExploitationN} montantN1={soldes.totalChargesExploitationN1} isSubTotal />
                     
-                    <ResultatRow libelle="RÉSULTAT D'EXPLOITATION" montantN={resultat.soldes.resultatExploitationN} montantN1={resultat.soldes.resultatExploitationN1} isTotal />
+                    <ResultatRow libelle="RÉSULTAT D'EXPLOITATION" montantN={soldes.resultatExploitationN} montantN1={soldes.resultatExploitationN1} isTotal />
                     
                     <tr className="h-4"><td colSpan="3"></td></tr>
                     <tr className="bg-gray-100 font-semibold"><td colSpan="3" className="p-1">Résultat financier</td></tr>
-                    {resultat.sections['Produits financiers'].map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
-                    {resultat.sections['Charges financières'].map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
-                    <ResultatRow libelle="RÉSULTAT FINANCIER" montantN={resultat.soldes.resultatFinancierN} montantN1={resultat.soldes.resultatFinancierN1} isTotal />
+                    {produitsFinanciers.map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
+                    {chargesFinancieres.map(item => <ResultatRow key={item.libelle} libelle={item.libelle} montantN={item.montantN} montantN1={item.montantN1} indent />)}
+                    <ResultatRow libelle="RÉSULTAT FINANCIER" montantN={soldes.resultatFinancierN} montantN1={soldes.resultatFinancierN1} isTotal />
 
                     <tr className="h-4"><td colSpan="3"></td></tr>
-                    <ResultatRow libelle="RÉSULTAT COURANT AVANT IMPÔTS" montantN={resultat.soldes.resultatCourantAvantImpotN} montantN1={resultat.soldes.resultatCourantAvantImpotN1} isTotal />
+                    <ResultatRow libelle="RÉSULTAT COURANT AVANT IMPÔTS" montantN={soldes.resultatCourantAvantImpotN} montantN1={soldes.resultatCourantAvantImpotN1} isTotal />
                     
                     <ResultatRow libelle="Impôts sur les bénéfices" montantN={0} montantN1={0} indent />
                     <tr className="h-4"><td colSpan="3"></td></tr>
-                    <ResultatRow libelle="BÉNÉFICE OU PERTE NET" montantN={resultat.soldes.beneficeOuPerteN} montantN1={resultat.soldes.beneficeOuPerteN1} isTotal />
+                    <ResultatRow libelle="BÉNÉFICE OU PERTE NET" montantN={soldes.beneficeOuPerteN} montantN1={soldes.beneficeOuPerteN1} isTotal />
                 </tbody>
             </table>
         </>
     );
+};
+
+
+// --- COMPOSANT PRINCIPAL ---
+const CompteDeResultatComparatifPage = ({ comptes, ecritures, dateCloture }) => {
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    
+    // Le helper `genererDonneesResultatComparatif` attend `comptes` comme premier argument
+    // mais il n'était pas passé dans les props. On l'ajoute.
+    const resultat = useMemo(() => genererDonneesResultatComparatif(comptes, ecritures, dateCloture), [comptes, ecritures, dateCloture]);
+
+    // --- SÉCURITÉ : On vérifie si les données sont prêtes ---
+    if (!resultat || !resultat.sections || !resultat.soldes) {
+        return (
+            <div className="p-8 text-center text-gray-500">
+                Calcul du compte de résultat comparatif...
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 h-full overflow-y-auto bg-white">
@@ -69,14 +97,14 @@ const CompteDeResultatComparatifPage = ({ ecritures, dateCloture }) => {
                 </button>
             </div>
             
-            <ResultatContent />
+            <ResultatContent resultat={resultat} dateCloture={dateCloture} />
 
             <PrintPreviewModal 
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}
                 title="Aperçu avant impression - Compte de Résultat Comparatif"
             >
-                <ResultatContent />
+                <ResultatContent resultat={resultat} dateCloture={dateCloture} />
             </PrintPreviewModal>
         </div>
     );

@@ -77,6 +77,17 @@ async function setupDatabase() {
         devise TEXT NOT NULL,
         valeur NUMERIC(15, 4) NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS immobilisations (
+        id SERIAL PRIMARY KEY,
+        libelle TEXT NOT NULL,
+        date_acquisition DATE NOT NULL,
+        valeur_origine NUMERIC(15, 2) NOT NULL,
+        duree_amortissement INTEGER NOT NULL, -- en années
+        compte_immobilisation TEXT NOT NULL REFERENCES plan_comptable(numero_compte),
+        compte_amortissement TEXT NOT NULL REFERENCES plan_comptable(numero_compte),
+        statut TEXT DEFAULT 'En cours' -- ex: En cours, Cédé, Rebuté
+      );
     `);
     console.log('✅ Les tables sont prêtes.');
   } catch (err) {
@@ -163,6 +174,75 @@ async function generateNumeroPiece(journal_code, date) {
 
 // --- Racine ---
 app.get('/', (req, res) => res.send('API de comptabilité fonctionnelle !'));
+
+// POST /api/amortissements/generer
+// On envoie une date de fin, ex: { date_fin: "2025-12-31" }
+app.post('/api/amortissements/generer', async (req, res) => {
+  const { date_fin } = req.body;
+  const dateCloture = new Date(date_fin);
+  const anneeCloture = dateCloture.getFullYear();
+  const client = await pool.connect();
+
+  try {
+      await client.query('BEGIN');
+
+      // 1. Récupérer toutes les immobilisations "En cours"
+      const immosRes = await client.query("SELECT * FROM immobilisations WHERE statut = 'En cours'");
+      const immobilisations = immosRes.rows;
+
+      let totalDotation = 0;
+
+      for (const immo of immobilisations) {
+          const dateAcquisition = new Date(immo.date_acquisition);
+          const anneeAcquisition = dateAcquisition.getFullYear();
+
+          // Ne pas calculer pour les biens acquis l'année de la clôture (prorata plus complexe)
+          // Simplification : on amortit sur des années complètes.
+          if (anneeAcquisition >= anneeCloture) continue;
+
+          // 2. Calculer l'amortissement annuel
+          const dotationAnnuelle = parseFloat(immo.valeur_origine) / immo.duree_amortissement;
+
+          // 3. Vérifier si l'écriture pour cette immo et cette année n'existe pas déjà
+          const pieceRef = `DOT-${immo.id}-${anneeCloture}`;
+          const existingEcriture = await client.query(
+              "SELECT id FROM ecritures WHERE numero_piece = $1",
+              [pieceRef]
+          );
+
+          if (existingEcriture.rowCount === 0) {
+              // 4. L'écriture n'existe pas, on la crée
+              const libelle = `Dotation amortissement ${anneeCloture} - ${immo.libelle}`;
+              
+              // Débit du compte de charge
+              await client.query(
+                  `INSERT INTO ecritures (journal_code, date, numero_piece, libelle_operation, compte_general, debit)
+                   VALUES ('OD', $1, $2, $3, '681', $4)`,
+                  [date_fin, pieceRef, libelle, dotationAnnuelle]
+              );
+
+              // Crédit du compte d'amortissement
+              await client.query(
+                  `INSERT INTO ecritures (journal_code, date, numero_piece, libelle_operation, compte_general, credit)
+                   VALUES ('OD', $1, $2, $3, $4, $5)`,
+                  [date_fin, pieceRef, libelle, immo.compte_amortissement, dotationAnnuelle]
+              );
+              
+              totalDotation += dotationAnnuelle;
+          }
+      }
+
+      await client.query('COMMIT');
+      res.status(201).json({ message: `Génération des dotations terminée. Total: ${totalDotation} Ar.` });
+
+  } catch (err) {
+      await client.query('ROLLBACK');
+      console.error("Erreur génération amortissements:", err);
+      res.status(500).json({ error: "Erreur lors de la génération des écritures." });
+  } finally {
+      client.release();
+  }
+});
 
 // --- GET COMPTES/PLAN COMPTABLE ---
 app.get('/api/comptes', async (req, res) => {
