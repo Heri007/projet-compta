@@ -16,7 +16,7 @@ backend/dist/
 backend/logs/
 backend/*.log
 backend/seed_articles.js
-backend/setub_db.js
+backend/setup_db.js
 
 # ==============================
 # Frontend
