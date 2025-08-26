@@ -1,19 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { genererDonneesBilanComparatif } from '../utils/bilanHelperN1';
 import PrintPreviewModal from '../components/PrintPreviewModal'; // Import de la modale d'impression
-
-const formatCurrency = (val) => {
-    if (val === 0 || !val) return '-';
-    return `${val.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} Ar`;
-};
+import { formatNumber } from '../utils/formatUtils'; 
 
 const BilanRow = ({ libelle, montantN, montantN1, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b hover:bg-blue-50"}>
         <td className={`p-1 ${indent ? 'pl-8' : ''}`}>{libelle}</td>
-        <td className="p-1 text-right font-mono">{formatCurrency(montantN)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(montantN)}</td>
         <td className="p-1 text-right font-mono bg-gray-50">#VALUE!</td>
-        <td className="p-1 text-right font-mono">{formatCurrency(montantN)}</td>
-        <td className="p-1 text-right font-mono border-l border-gray-300">{formatCurrency(montantN1)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(montantN)}</td>
+        <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(montantN1)}</td>
     </tr>
 );
 
@@ -70,14 +66,14 @@ const BilanPassif = ({ data }) => (
                                 {sousData.lignes.map(ligne => (
                                     <tr key={ligne.libelle} className="border-b hover:bg-purple-50">
                                         <td className="p-1 pl-8">{ligne.libelle}</td>
-                                        <td className="p-1 text-right font-mono">{formatCurrency(ligne.montantBrutN)}</td>
-                                        <td className="p-1 text-right font-mono border-l border-gray-300">{formatCurrency(ligne.montantBrutN1)}</td>
+                                        <td className="p-1 text-right font-mono">{formatNumber(ligne.montantBrutN)}</td>
+                                        <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(ligne.montantBrutN1)}</td>
                                     </tr>
                                 ))}
                                 <tr className="bg-gray-100 font-semibold">
                                     <td className="p-1">{`Total ${sousMasse}`}</td>
-                                    <td className="p-1 text-right font-mono">{formatCurrency(sousData.totalN)}</td>
-                                    <td className="p-1 text-right font-mono border-l border-gray-300">{formatCurrency(sousData.totalN1)}</td>
+                                    <td className="p-1 text-right font-mono">{formatNumber(sousData.totalN)}</td>
+                                    <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(sousData.totalN1)}</td>
                                 </tr>
                             </React.Fragment>
                         ))}
@@ -86,8 +82,8 @@ const BilanPassif = ({ data }) => (
             })}
             <tr className="bg-gray-200 font-bold">
                 <td className="p-1">TOTAL DU PASSIF</td>
-                <td className="p-1 text-right font-mono">{formatCurrency(data.TOTAL_N)}</td>
-                <td className="p-1 text-right font-mono border-l border-gray-300">{formatCurrency(data.TOTAL_N1)}</td>
+                <td className="p-1 text-right font-mono">{formatNumber(data.TOTAL_N)}</td>
+                <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(data.TOTAL_N1)}</td>
             </tr>
         </tbody>
     </table>

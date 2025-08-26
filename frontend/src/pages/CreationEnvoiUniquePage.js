@@ -10,8 +10,7 @@ const FormInputGroup = ({ label, children }) => (
   </div>
 );
 
-const CreationEnvoiUniquePage = ({ tiers, setPage, handleAddEnvoi, handleAddClientAndEnvoi }) => {
-  const [isNewClient, setIsNewClient] = useState(false);
+const CreationEnvoiUniquePage = ({ tiers, setPage, handleAddEnvoi, handleAddClientAndEnvoi, planComptable }) => {  const [isNewClient, setIsNewClient] = useState(false);
   const clients = useMemo(() => tiers.filter(t => t.type === 'Client'), [tiers]);
 
   const [clientCode, setClientCode] = useState('');
@@ -26,25 +25,44 @@ const CreationEnvoiUniquePage = ({ tiers, setPage, handleAddEnvoi, handleAddClie
 
   const allArticles = useMemo(() => LISTE_ARTICLES, []);
 
-  // --- Génération automatique de l'ID d'envoi ---
-  useEffect(() => {
-    if ((!clientCode && !nomClient) || !articleCode || !quantite) {
-      setEnvoiId('');
-      return;
-    }
+  // --- AJOUT : On filtre le plan comptable pour ne garder que les comptes clients ---
+  const comptesClients = useMemo(() => {
+    if (!planComptable) return [];
+    // On garde tous les comptes qui commencent par "41"
+    return planComptable.filter(c => c.numero_compte.startsWith('41'));
+}, [planComptable]);
 
-    const article = allArticles.find(a => a.code === articleCode);
-    if (!article) {
-      setEnvoiId('');
-      return;
-    }
+  // --- Génération automatique de l'ID d'envoi (LOGIQUE CORRIGÉE) ---
+useEffect(() => {
+  if ((!clientCode && !isNewClient) || (isNewClient && !nomClient) || !articleCode || !quantite) {
+    setEnvoiId('');
+    return;
+  }
 
-    const now = new Date();
-    const prefix = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    const codePart = isNewClient ? 'NEW' : clientCode;
-    setEnvoiId(`${prefix}-${codePart}_${quantite}CT_${article.code}_${rand}`);
-  }, [clientCode, nomClient, articleCode, quantite, allArticles, isNewClient]);
+  const article = allArticles.find(a => a.code === articleCode);
+  if (!article) {
+    setEnvoiId('');
+    return;
+  }
+  
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  let finalId = '';
+
+  if (isNewClient) {
+      // --- Cas 1 : Nouveau client ---
+      // On génère un préfixe et on utilise un placeholder pour le numéro de client.
+      const now = new Date();
+      const prefix = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+      // NOTE: Le backend devra générer le vrai numéro de client (ex: -001, -002...)
+      finalId = `${prefix}-NOUVEAU_${quantite}CT_${article.code}_${rand}`;
+  } else {
+      // --- Cas 2 : Client existant ---
+      // On utilise directement le code client SANS ajouter de préfixe.
+      finalId = `${clientCode}_${quantite}CT_${article.code}_${rand}`;
+  }
+
+  setEnvoiId(finalId);
+}, [clientCode, nomClient, articleCode, quantite, allArticles, isNewClient]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -66,28 +84,29 @@ const CreationEnvoiUniquePage = ({ tiers, setPage, handleAddEnvoi, handleAddClie
       if (!article) throw new Error("Article non trouvé.");
 
       if (isNewClient) {
-        const clientData = { nom: nomClient, type: typeClient, compte_general: compteGeneral };
-        const envoiDataPartial = {
-          nom: `Envoi pour ${nomClient} - ${article.designation}`,
-          designation: article.designation,
-          article_code: article.code,
-          quantite: quantiteNum
-        };
-        await handleAddClientAndEnvoi(clientData, envoiDataPartial);
+        // --- Pour un nouveau client ---
+const clientData = { nom: nomClient, type: typeClient, compte_general: compteGeneral };
+const envoiDataPartial = {
+  nom: `Envoi pour ${nomClient} - ${article.designation}`, // ✅ nom complet côté frontend
+  article_code: article.code,
+  quantite: quantiteNum
+  
+};
+await handleAddClientAndEnvoi(clientData, envoiDataPartial);
       } else {
-        const clientSelectionne = clients.find(c => c.code === clientCode);
-        const envoiData = {
-          id: envoiId,
-          nom: `Envoi pour ${clientSelectionne.nom} - ${article.designation}`,
-          client_code: clientCode,
-          statut: "actif",
-          total_produits: 0,
-          total_charges: 0,
-          designation: article.designation,
-          quantite: quantiteNum,
-          article_code: article.code
-        };
-        await handleAddEnvoi(envoiData);
+        // --- Pour un client existant ---
+const clientSelectionne = clients.find(c => c.code === clientCode);
+const envoiData = {
+  id: envoiId,
+  nom: `Envoi pour ${clientSelectionne.nom} - ${article.designation}`, // ✅ nom complet côté frontend
+  client_code: clientCode,
+  statut: "actif",
+  total_produits: 0,
+  total_charges: 0,
+  quantite: quantiteNum,
+  article_code: article.code
+};
+await handleAddEnvoi(envoiData);
       }
 
       // Reset
@@ -151,11 +170,19 @@ const CreationEnvoiUniquePage = ({ tiers, setPage, handleAddEnvoi, handleAddClie
                     </select>
                   </FormInputGroup>
                   <FormInputGroup label="Compte Général Associé">
-                    <select value={compteGeneral} onChange={e => setCompteGeneral(e.target.value)} className="mt-1 w-full p-3 border rounded-lg shadow-sm">
-                      <option value="411000">411000 - Clients</option>
-                      <option value="401000">401000 - Fournisseurs</option>
-                    </select>
-                  </FormInputGroup>
+  <select 
+    value={compteGeneral} 
+    onChange={e => setCompteGeneral(e.target.value)} 
+    className="mt-1 w-full p-3 border rounded-lg shadow-sm"
+  >
+    {/* On boucle sur la liste des comptes clients filtrés */}
+    {comptesClients.map(compte => (
+      <option key={compte.numero_compte} value={compte.numero_compte}>
+        {compte.numero_compte} - {compte.libelle}
+      </option>
+    ))}
+  </select>
+</FormInputGroup>
                 </>
               )}
             </div>

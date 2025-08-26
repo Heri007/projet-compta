@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import PageHeader from '../components/PageHeader';
 import WidgetCard from '../components/WidgetCard';
 import { genererDonneesResultat } from '../utils/compteDeResultatHelper';
+import TauxDeChangeWidget from '../components/TauxDeChangeWidget';
 
 const StatCard = ({ title, value, icon, color, onClick }) => (
   <button
@@ -18,17 +19,24 @@ const StatCard = ({ title, value, icon, color, onClick }) => (
   </button>
 );
 
-const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], envois = [], mouvements = [], setPage, navigateToReport }) => {    
+
+const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], envois = [], factures = [], mouvements = [], setPage, navigateToReport }) => {    
+  
+  // --- CORRECTION DU BLOC useMemo ENTIER ---
   const dashboardData = useMemo(() => {
+    // 1. Sécuriser les données (s'assurer que ce sont bien des tableaux)
     const safeEcritures = Array.isArray(ecritures) ? ecritures : [];
     const safeTiers = Array.isArray(tiers) ? tiers : [];
     const safeArticles = Array.isArray(articles) ? articles : [];
     const safeEnvois = Array.isArray(envois) ? envois : [];
+    const safeFactures = Array.isArray(factures) ? factures : [];
     const safeMouvements = Array.isArray(mouvements) ? mouvements : [];
     const safePlanComptable = Array.isArray(planComptable) ? planComptable : [];
 
+    // 2. Calculer le résultat net
     const resultatData = genererDonneesResultat(safePlanComptable, safeEcritures);
 
+    // 3. Préparer les dernières opérations uniques
     const dernieresOperationsMap = new Map();
     safeEcritures.forEach(op => {
       if (op.numero_piece && !dernieresOperationsMap.has(op.numero_piece)) {
@@ -36,7 +44,8 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
       }
     });
     const dernieresOperationsUniques = Array.from(dernieresOperationsMap.values()).slice(0, 5);
-
+    
+    // 4. Préparer les derniers mouvements de stock
     const derniersMouvements = safeMouvements.slice(0, 5);
     const stockWidgetData = derniersMouvements.map(mouvement => {
       const articleCorrespondant = safeArticles.find(art => art.designation === mouvement.designation);
@@ -46,17 +55,39 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
       };
     });
 
+    // 5. Préparer les envois récents enrichis (avec la logique de priorité à la facture définitive)
+    const envoisRecentsEnrichis = safeEnvois.slice(0, 5).map(envoi => {
+      // Chercher la facture définitive en priorité
+      let factureAssociee = safeFactures.find(f => 
+        f.envoi_id === envoi.id && f.type_facture === 'Definitive'
+      );
+      // Si aucune définitive n'est trouvée, chercher une proforma
+      if (!factureAssociee) {
+        factureAssociee = safeFactures.find(f => 
+          f.envoi_id === envoi.id && f.type_facture === 'Proforma'
+        );
+      }
+      const clientAssocie = safeTiers.find(t => t.code === envoi.client_code);
+
+      return { 
+        ...envoi, 
+        facture: factureAssociee,
+        client: clientAssocie,
+      };
+    });
+
+    // 6. Retourner UN SEUL objet final avec toutes les données préparées
     return {
       resultatNet: resultatData.beneficeOuPerte || 0,
       envoisActifs: safeEnvois.filter(e => e.statut === 'actif').length,
       nombreArticles: safeArticles.length,
       totalTiers: safeTiers.length,
       dernieresOperations: dernieresOperationsUniques,
-      envoisRecents: safeEnvois.slice(0, 5),
+      envoisRecents: envoisRecentsEnrichis, // Utiliser la liste enrichie
       derniersMouvementsStock: stockWidgetData,
     };
-  }, [planComptable, ecritures, tiers, articles, envois, mouvements]);
 
+  }, [planComptable, ecritures, tiers, articles, envois, mouvements, factures]);
   const formatCurrency = (val) => `${(val || 0).toLocaleString('fr-FR')} Ar`;
 
   return (
@@ -105,6 +136,9 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
           </div>
         </WidgetCard>
 
+        {/* --- AJOUT DU WIDGET DE TAUX DE CHANGE --- */}
+        <TauxDeChangeWidget />
+
         <WidgetCard title="Dernières Opérations (par pièce)">
           <ul className="space-y-2 h-48 overflow-y-auto">
             {dashboardData.dernieresOperations.length > 0 ? (
@@ -121,18 +155,65 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
         </WidgetCard>
 
         <WidgetCard title="Envois Récents">
-          <ul className="space-y-2 h-48 overflow-y-auto">
-            {dashboardData.envoisRecents.length > 0 ? (
-              dashboardData.envoisRecents.map(p => (
-                <li key={p.id} className="text-sm p-2 bg-gray-50 rounded-md">
-                  <span className="font-semibold text-blue-600">{p.nom}</span>
-                </li>
-              ))
-            ) : (
-              <li className="text-sm text-gray-400 text-center p-4">Aucun envoi actif.</li>
-            )}
-          </ul>
-        </WidgetCard>
+  <div className="h-48 overflow-y-auto">
+    <table className="min-w-full text-sm">
+      <thead className="sticky top-0 bg-white">
+        <tr>
+          {['Envoi', 'Article', 'Client', 'Facture'].map(h => 
+            <th key={h} className="py-2 px-2 text-left font-semibold text-gray-500">{h}</th>
+          )}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {dashboardData.envoisRecents.length > 0 ? (
+          dashboardData.envoisRecents.map(envoi => (
+            <tr key={envoi.id}>
+              <td className="py-2 px-2">
+                <button 
+                  onClick={() => setPage('envoi')} 
+                  className="font-semibold text-blue-600 hover:underline text-left"
+                >
+                  {envoi.nom}
+                </button>
+              </td>
+              <td className="py-2 px-2">{envoi.designation}</td>
+              <td className="py-2 px-2">
+                {envoi.client ? (
+                  <button 
+                    onClick={() => setPage('tiers')} 
+                    className="hover:underline"
+                  >
+                    {envoi.client.nom}
+                  </button>
+                ) : (
+                  <span className="text-gray-400">Inconnu</span>
+                )}
+              </td>
+              <td className="py-2 px-2">
+                {envoi.facture ? (
+                  <button 
+                    onClick={() => setPage('liste_ventes')} 
+                    className="hover:underline"
+                  >
+                    {`${envoi.facture.numero_facture} (${envoi.facture.type_facture})`}
+                  </button>
+                ) : (
+                  <span className="text-gray-400">Aucune</span>
+                )}
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="4" className="text-sm text-gray-400 text-center p-4">
+              Aucun envoi récent.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</WidgetCard>
 
         <WidgetCard title="Derniers Mouvements de Stock">
           <div className="h-48 overflow-y-auto">

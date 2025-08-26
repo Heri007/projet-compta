@@ -23,6 +23,7 @@ import CreationFacturePage from './pages/CreationFacturePage';
 import ListeDesVentesPage from './pages/ListeDesVentesPage';
 import ListeDesEncaissementsPage from './pages/ListeDesEncaissementsPage';
 import CreationEnvoiUniquePage from './pages/CreationEnvoiUniquePage';
+import InvoicePage from './pages/InvoicePage';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -102,6 +103,23 @@ export default function App() {
       alert(err.response?.data?.error || "Erreur lors de l'ajout de l'envoi.");
     }
   };
+
+  // --- NOUVELLE FONCTION POUR GÉRER LA SUPPRESSION ---
+  const handleDeleteEcriture = async (numeroPiece) => {
+    if (!numeroPiece) return alert("Numéro de pièce invalide.");
+    
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer la pièce n° ${numeroPiece} et toutes ses lignes ?`)) {
+        try {
+            setLoading(true);
+            await axios.delete(`${API_URL}/api/ecritures/piece/${numeroPiece}`);
+            await fetchData(); // Pour rafraîchir les données après suppression
+        } catch (err) {
+            console.error("Erreur lors de la suppression :", err);
+            alert(err.response?.data?.error || "Une erreur est survenue.");
+            setLoading(false);
+        }
+    }
+};
   
 
   const handleAddClientAndEnvoi = async (clientData, envoiDataPartial) => {
@@ -173,12 +191,13 @@ export default function App() {
                   handleAddEnvoi={handleAddEnvoi} 
                   handleAddClientAndEnvoi={handleAddClientAndEnvoi} 
                   articles={articles} 
+                  planComptable={planComptable}
                />;
       case 'saisie': return <SaisieEcritures journaux={journaux} planComptable={planComptable} setPage={setPage} refreshData={fetchData} ecritureToEdit={ecritureToEdit} clearEcritureToEdit={clearEcritureToEdit} />;
-      case 'ecritures': return <ConsultationEcritures setPage={setPage} ecritures={ecritures} loading={loading} refreshData={fetchData} handleEdit={handleEditEcriture} handleDelete={() => alert('Suppression à implémenter')} clearEcritureToEdit={clearEcritureToEdit} />;
+      case 'ecritures': return <ConsultationEcritures setPage={setPage} ecritures={ecritures} loading={loading} refreshData={fetchData} handleEdit={handleEditEcriture} handleDelete={handleDeleteEcriture}  clearEcritureToEdit={clearEcritureToEdit} />;
       case 'poubelle': return <PoubellePage setPage={setPage} />;
       case 'plan_comptable': return <PlanComptable comptes={planComptable} refreshData={fetchData} />;
-      case 'tiers': return <Tiers tiers={tiers} envois={envois} refreshData={fetchData} setPage={setPage} />;
+      case 'tiers': return <Tiers tiers={tiers} envois={envois} refreshData={fetchData} setPage={setPage} planComptable={planComptable}  />;
       case 'reporting': return <ReportingPage comptes={planComptable} ecritures={ecritures} dateCloture={dateCloture} initialSelectedReportId={targetReportId} />;
       case 'import': return <PlaceholderPage title="Import / Export" />;
       case 'parametres': return <ParametresPage dateCloture={dateCloture} setDateCloture={setDateCloture} />;
@@ -190,6 +209,9 @@ export default function App() {
             factures={factures} 
             refreshData={fetchData} 
          />;
+      case 'invoice':
+          return <InvoicePage factureId={subId} />;
+            
       case 'liste_encaissements': return <ListeDesEncaissementsPage setPage={setPage} />;
       default: return <Dashboard planComptable={planComptable} ecritures={ecritures} tiers={tiers} articles={articles} envois={envois} dateCloture={dateCloture} setPage={setPage} navigateToReport={navigateToReport} />;
     }

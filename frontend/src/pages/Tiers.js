@@ -4,7 +4,7 @@ import PageHeader from '../components/PageHeader';
 import WidgetCard from '../components/WidgetCard';
 import { FormulaireTiers } from '../components/Formulaires';
 
-const Tiers = ({ tiers = [], envois = [], refreshData, setPage }) => {
+const Tiers = ({ tiers = [], envois = [], refreshData, setPage, planComptable }) => { 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTiers, setSelectedTiers] = useState(null);
 
@@ -48,6 +48,7 @@ const Tiers = ({ tiers = [], envois = [], refreshData, setPage }) => {
                     onClose={() => setIsModalOpen(false)} 
                     refreshData={refreshData} 
                     setPage={setPage} 
+                    planComptable={planComptable} 
                 />
             </Modal>
 

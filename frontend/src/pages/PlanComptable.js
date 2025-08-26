@@ -18,7 +18,7 @@ const PlanComptable = ({ comptes, refreshData }) => {
                 </button>
             </div>
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Créer un Nouveau Compte">
-                <FormulaireCompte onClose={() => setIsModalOpen(false)} refreshData={refreshData} />
+                <FormulaireCompte onClose={() => setIsModalOpen(false)} refreshData={refreshData} planComptable={comptes}  />
             </Modal>
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">

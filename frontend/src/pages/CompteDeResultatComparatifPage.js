@@ -1,17 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { genererDonneesResultatComparatif } from '../utils/compteDeResultatHelperN1';
 import PrintPreviewModal from '../components/PrintPreviewModal';
-
-const formatCurrency = (val) => {
-    if (val === 0 || !val) return '-';
-    return `${val.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} Ar`;
-};
+import { formatNumber } from '../utils/formatUtils'; 
 
 const ResultatRow = ({ libelle, montantN, montantN1, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b hover:bg-blue-50"}>
         <td className={`p-1 ${indent ? 'pl-8' : ''}`}>{libelle}</td>
-        <td className="p-1 text-right font-mono">{formatCurrency(montantN)}</td>
-        <td className="p-1 text-right font-mono border-l border-gray-300">{formatCurrency(montantN1)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(montantN)}</td>
+        <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(montantN1)}</td>
     </tr>
 );
 

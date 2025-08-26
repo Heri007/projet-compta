@@ -2,17 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { genererDonneesTFT } from '../utils/tftHelper';
 // import PageHeader from '../components/PageHeader'; // Ligne retirée
 import PrintPreviewModal from '../components/PrintPreviewModal';
-
-const formatCurrency = (val) => {
-    if (val === 0) return '0,00';
-    if (!val) return '-';
-    return val.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
-};
+import { formatNumber } from '../utils/formatUtils'; 
 
 const TftRow = ({ libelle, montant, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b"}>
         <td className={`p-2 ${indent ? 'pl-8' : ''}`}>{libelle}</td>
-        <td className="p-2 text-right font-mono">{formatCurrency(montant)}</td>
+        <td className="p-2 text-right font-mono">{formatNumber(montant)}</td>
     </tr>
 );
 

@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { genererDonneesTVCP } from '../utils/tvcpHelper';
 import PrintPreviewModal from '../components/PrintPreviewModal';
-
-const formatCurrency = (val) => val === 0 ? '-' : val.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+import { formatNumber } from '../utils/formatUtils'; 
 
 const TableauVariationCapitauxPropresPage = ({ comptes, ecritures, dateCloture }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -28,10 +27,10 @@ const TableauVariationCapitauxPropresPage = ({ comptes, ecritures, dateCloture }
                     {tvcpData.map((row, index) => (
                         <tr key={index} className={`border-b ${row.libelle.toLowerCase().startsWith('solde') ? 'font-bold bg-gray-100' : ''}`}>
                             <td className="p-2">{row.libelle}</td>
-                            <td className="p-2 text-right font-mono">{formatCurrency(row.capital)}</td>
-                            <td className="p-2 text-right font-mono">{formatCurrency(row.reserves)}</td>
-                            <td className="p-2 text-right font-mono">{formatCurrency(row.resultat)}</td>
-                            <td className="p-2 text-right font-mono font-semibold">{formatCurrency(row.total)}</td>
+                            <td className="p-2 text-right font-mono">{formatNumber(row.capital)}</td>
+                            <td className="p-2 text-right font-mono">{formatNumber(row.reserves)}</td>
+                            <td className="p-2 text-right font-mono">{formatNumber(row.resultat)}</td>
+                            <td className="p-2 text-right font-mono font-semibold">{formatNumber(row.total)}</td>
                         </tr>
                     ))}
                 </tbody>
