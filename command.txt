@@ -1,5 +1,0 @@
-cd projet-compta/backend
-node server.js
-
-cd projet-compta/frontend
-npm start
