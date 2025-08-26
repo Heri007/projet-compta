@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { genererDonneesBilanComparatif } from '../utils/bilanHelperN1';
-import PrintPreviewModal from '../components/PrintPreviewModal'; // Import de la modale d'impression
+import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils'; 
 
-const BilanRow = ({ libelle, montantN, montantN1, isTotal = false, isSubTotal = false, indent = false }) => (
+// --- MIS À JOUR POUR AFFICHER LES 4 COLONNES ---
+const BilanRow = ({ libelle, N, N1, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b hover:bg-blue-50"}>
         <td className={`p-1 ${indent ? 'pl-8' : ''}`}>{libelle}</td>
-        <td className="p-1 text-right font-mono">{formatNumber(montantN)}</td>
-        <td className="p-1 text-right font-mono bg-gray-50">#VALUE!</td>
-        <td className="p-1 text-right font-mono">{formatNumber(montantN)}</td>
-        <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(montantN1)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(N.brut)}</td>
+        <td className="p-1 text-right font-mono bg-gray-50">{formatNumber(N.amort)}</td>
+        <td className="p-1 text-right font-mono">{formatNumber(N.net)}</td>
+        <td className="p-1 text-right font-mono border-l border-gray-300">{formatNumber(N1.net)}</td>
     </tr>
 );
 
@@ -26,22 +27,22 @@ const BilanActif = ({ data }) => (
         </thead>
         <tbody>
             {Object.entries(data).map(([grandeMasse, grandeMasseData]) => {
-                if (grandeMasse.startsWith('TOTAL')) return null;
+                if (grandeMasse === 'TOTAL') return null;
                 return (
                     <React.Fragment key={grandeMasse}>
                         <tr className="bg-gray-800 text-white font-bold"><td colSpan="5" className="p-1">{grandeMasse}</td></tr>
                         {Object.entries(grandeMasseData.sous_masses).map(([sousMasse, sousData]) => (
                             <React.Fragment key={sousMasse}>
                                 <tr><td colSpan="5" className="p-1 font-semibold italic">{sousMasse}</td></tr>
-                                {sousData.lignes.map(ligne => <BilanRow key={ligne.libelle} libelle={ligne.libelle} montantN={ligne.montantBrutN} montantN1={ligne.montantBrutN1} indent={true} />)}
-                                <BilanRow libelle={`Total ${sousMasse}`} montantN={sousData.totalN} montantN1={sousData.totalN1} isSubTotal={true} />
+                                {sousData.lignes.map(ligne => <BilanRow key={ligne.libelle} {...ligne} indent={true} />)}
+                                <BilanRow libelle={`Total ${sousMasse}`} N={sousData.total.N} N1={sousData.total.N1} isSubTotal={true} />
                             </React.Fragment>
                         ))}
-                        <BilanRow libelle={`TOTAL DE L'${grandeMasse}`} montantN={grandeMasseData.totalN} montantN1={grandeMasseData.totalN1} isTotal={true} />
+                        <BilanRow libelle={`TOTAL DE L'${grandeMasse}`} N={grandeMasseData.total.N} N1={grandeMasseData.total.N1} isTotal={true} />
                     </React.Fragment>
                 );
             })}
-            <BilanRow libelle="TOTAL DE L'ACTIF" montantN={data.TOTAL_N} montantN1={data.TOTAL_N1} isTotal={true} />
+            <BilanRow libelle="TOTAL DE L'ACTIF" N={data.TOTAL.N} N1={data.TOTAL.N1} isTotal={true} />
         </tbody>
     </table>
 );

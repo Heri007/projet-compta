@@ -1,25 +1,14 @@
 import React, { useState } from 'react';
-// ❌ On n'a plus besoin d'axios ou useEffect ici
-// import axios from 'axios';
-// import { useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import FormulaireArticle from '../components/FormulaireArticle';
 import FormulaireMouvementStock from '../components/FormulaireMouvementStock';
 
-// ❌ On n'a plus besoin de l'URL de l'API ici
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-
-const ArticlesStocksPage = ({ articles = [], mouvements = [], refreshData }) => {
+// On ajoute "factures" à la liste des props reçues
+const ArticlesStocksPage = ({ articles = [], mouvements = [], factures = [], refreshData }) => {
     const [activeTab, setActiveTab] = useState('liste');
     const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [isMouvementModalOpen, setIsMouvementModalOpen] = useState(false);
-
-    // ❌ TOUTE LA LOGIQUE DE CHARGEMENT EST SUPPRIMÉE
-    // const [loading, setLoading] = useState(true);
-    // const [error, setError] = useState(null);
-    // const refreshData = async () => { ... };
-    // useEffect(() => { ... }, []);
 
     const formatNumber = (num) => (num ? parseFloat(num).toLocaleString('fr-FR') : '');
 
@@ -61,8 +50,6 @@ const ArticlesStocksPage = ({ articles = [], mouvements = [], refreshData }) => 
                     </button>
                 </div>
             </div>
-
-            {/* ❌ La gestion de `loading` et `error` est maintenant gérée par App.js */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 {activeTab === 'liste' && (
                     <table className="min-w-full divide-y divide-gray-200">
@@ -119,12 +106,18 @@ const ArticlesStocksPage = ({ articles = [], mouvements = [], refreshData }) => 
                 )}
             </div>
 
-            {/* Les modales reçoivent maintenant les props `refreshData` et `articles` de App.js */}
+            {/* Modales */}
             <Modal isOpen={isArticleModalOpen} onClose={() => setIsArticleModalOpen(false)} title="Créer un Nouvel Article">
                 <FormulaireArticle onClose={() => setIsArticleModalOpen(false)} refreshData={refreshData} />
             </Modal>
             <Modal isOpen={isMouvementModalOpen} onClose={() => setIsMouvementModalOpen(false)} title="Enregistrer un Mouvement de Stock">
-                <FormulaireMouvementStock onClose={() => setIsMouvementModalOpen(false)} refreshData={refreshData} articles={articles} />
+                {/* --- CORRECTION : On passe la liste des factures au formulaire --- */}
+                <FormulaireMouvementStock 
+                    onClose={() => setIsMouvementModalOpen(false)} 
+                    refreshData={refreshData} 
+                    articles={articles}
+                    factures={factures} // <-- AJOUT DE CETTE PROP
+                />
             </Modal>
         </div>
     );
