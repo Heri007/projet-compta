@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-// --- On définit d'abord le composant NavItem réutilisable ---
+// Le composant NavItem est parfait, on n'y touche pas.
 const NavItem = ({ icon, label, pageName, currentPage, setPage }) => (
     <li>
         <button
@@ -10,7 +10,6 @@ const NavItem = ({ icon, label, pageName, currentPage, setPage }) => (
             className={`w-full flex items-center p-3 my-1 rounded-lg font-medium transition-all duration-300 transform ${
                 currentPage === pageName
                 ? 'bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white shadow-md'
-                // Classes pour le survol
                 : 'text-gray-700 hover:text-white hover:bg-gradient-to-r hover:from-[#667eea]/80 hover:to-[#764ba2]/80 hover:translate-x-1'
             }`}
         >
@@ -22,21 +21,28 @@ const NavItem = ({ icon, label, pageName, currentPage, setPage }) => (
 
 
 const Sidebar = ({ page, setPage }) => {
-  // La liste des menus est maintenant la seule source de vérité
+  // --- LISTE DES MENUS RÉORGANISÉE POUR PLUS DE CLARTÉ ---
   const menuItems = [
+    // Section Principale
     { id: 'dashboard', icon: '📊', label: 'Tableau de bord' },
     { id: 'entreprise', icon: '🏢', label: 'Entreprise' },
-    { id: 'envoi', icon: '✈️', label: 'Envoi' },
-    { id: 'clients_ventes', icon: '👨‍💼', label: 'Clients & Ventes' },
-    { id: 'liste_ventes', icon: '🧾', label: 'Factures' },
-    { id: 'fournisseurs_achats', icon: '🛒', label: 'Fournisseurs & Achats' },
+    
+    // Section Opérationnelle
+    { id: 'envoi', icon: '✈️', label: 'Envois' },
+    { id: 'liste_ventes', icon: '🧾', label: 'Factures de Vente' },
+    { id: 'documentation', icon: '📁', label: 'Documentation' }, // <-- Placé ici logiquement
+
+    // Section Tiers & Articles
+    { id: 'tiers', icon: '👥', label: 'Gestion des Tiers' },
     { id: 'articles_stocks', icon: '📦', label: 'Articles & Stocks' },
-    // --- NOUVEL AJOUT ---
     { id: 'immobilisations', icon: '🏛️', label: 'Immobilisations' },
-    { id: 'ecritures', icon: '✍️', label: 'Écritures' },
+    
+    // Section Comptabilité Pure
+    { id: 'ecritures', icon: '✍️', label: 'Écritures Comptables' },
     { id: 'plan_comptable', icon: '🏦', label: 'Plan Comptable' },
-    { id: 'tiers', icon: '👥', label: 'Gestion des tiers' },
     { id: 'reporting', icon: '📋', label: 'États & Reporting' },
+
+    // Section Utilitaires
     { id: 'import', icon: '📥', label: 'Import/Export' },
     { id: 'parametres', icon: '⚙️', label: 'Paramètres' },
   ];
@@ -45,7 +51,7 @@ const Sidebar = ({ page, setPage }) => {
     <aside className="bg-white/60 backdrop-blur-lg rounded-2xl p-4 shadow-xl">
       <nav>
         <ul>
-          {/* --- CORRECTION MAJEURE : On boucle sur `menuItems` --- */}
+          {/* La boucle est déjà correcte, on n'y touche pas */}
           {menuItems.map(item => (
             <NavItem
               key={item.id}

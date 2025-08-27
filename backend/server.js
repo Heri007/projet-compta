@@ -4,12 +4,36 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path'); // Module natif de Node.js
+const puppeteer = require('puppeteer');
+const ejs = require('ejs');
+const fs = require('fs');
+
 
 const app = express();
 const port = 3001;
 
+// Configuration de Multer pour enregistrer les fichiers dans un dossier "uploads"
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+      cb(null, 'uploads/'); // Assurez-vous que le dossier "backend/uploads/" existe
+  },
+  filename: function (req, file, cb) {
+      // Génère un nom de fichier unique pour éviter les conflits
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
+
+// Rendez le dossier "uploads" accessible publiquement pour pouvoir voir les fichiers
+app.use('/uploads', express.static('uploads'));
 app.use(cors());
 app.use(express.json());
+// Configuration du moteur de template EJS
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -87,6 +111,20 @@ async function setupDatabase() {
         compte_immobilisation TEXT NOT NULL REFERENCES plan_comptable(numero_compte),
         compte_amortissement TEXT NOT NULL REFERENCES plan_comptable(numero_compte),
         statut TEXT DEFAULT 'En cours' -- ex: En cours, Cédé, Rebuté
+      );
+
+      CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        nom_document TEXT NOT NULL,                                -- Nom donné par l'utilisateur (ex: "Attestation Domiciliation Envoi X")
+        type_document TEXT NOT NULL,                                 -- Ex: "Facture Proforma", "LP1", "Fiche de Contrôle"
+        nom_fichier_stocke TEXT NOT NULL UNIQUE,                     -- Nom du fichier sur le serveur (pour éviter les doublons)
+        chemin_fichier TEXT NOT NULL,                                -- Chemin vers le fichier sur le serveur
+        type_mime TEXT NOT NULL,                                     -- Ex: "application/pdf", "image/jpeg"
+        taille_fichier INTEGER NOT NULL,                             -- En octets
+        date_upload TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        envoi_id TEXT REFERENCES envois(id) ON DELETE SET NULL,      -- Lien optionnel vers un envoi
+        facture_id INTEGER REFERENCES factures(id) ON DELETE SET NULL, -- Lien optionnel vers une facture
+        tiers_id TEXT REFERENCES tiers(code) ON DELETE SET NULL      -- Lien optionnel vers un tiers
       );
     `);
     console.log('✅ Les tables sont prêtes.');
@@ -167,6 +205,139 @@ async function generateNumeroPiece(journal_code, date) {
     client.release();
   }
 }
+
+// =================================================================================
+// ROUTES POUR LA GESTION DES DOCUMENTS
+// =================================================================================
+
+// GET : Récupérer la liste de tous les documents
+app.get('/api/documents', async (req, res) => {
+  try {
+      const result = await pool.query('SELECT * FROM documents ORDER BY date_upload DESC');
+      res.json(result.rows);
+  } catch (err) {
+      res.status(500).json({ error: err.message });
+  }
+});
+
+// POST : Téléverser un nouveau document
+app.post('/api/documents/upload', upload.single('document'), async (req, res) => {
+  const { nom_document, type_document, envoi_id, facture_id, tiers_id } = req.body;
+  const file = req.file;
+
+  if (!file) {
+      return res.status(400).json({ error: "Aucun fichier n'a été téléversé." });
+  }
+  
+  try {
+      const result = await pool.query(
+          `INSERT INTO documents (nom_document, type_document, nom_fichier_stocke, chemin_fichier, type_mime, taille_fichier, envoi_id, facture_id, tiers_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+          [
+              nom_document,
+              type_document,
+              file.filename,
+              file.path,
+              file.mimetype,
+              file.size,
+              envoi_id || null,
+              facture_id || null,
+              tiers_id || null
+          ]
+      );
+      res.status(201).json(result.rows[0]);
+  } catch (err) {
+      console.error("Erreur sauvegarde document:", err);
+      res.status(500).json({ error: "Erreur lors de la sauvegarde du document." });
+  }
+});
+
+// DELETE : Supprimer un document
+app.delete('/api/documents/:id', async (req, res) => {
+  const { id } = req.params;
+  const fs = require('fs'); // Module pour interagir avec les fichiers
+  
+  try {
+      // D'abord, trouver le document dans la BDD pour récupérer le chemin du fichier
+      const docRes = await pool.query('SELECT chemin_fichier FROM documents WHERE id = $1', [id]);
+      if (docRes.rowCount === 0) {
+          return res.status(404).json({ error: "Document non trouvé." });
+      }
+      const filePath = docRes.rows[0].chemin_fichier;
+
+      // Supprimer le fichier physique du serveur
+      fs.unlink(filePath, async (err) => {
+          if (err) {
+              console.error("Erreur suppression fichier physique:", err);
+              // On continue même si le fichier n'existe plus pour nettoyer la BDD
+          }
+          
+          // Supprimer la référence dans la base de données
+          await pool.query('DELETE FROM documents WHERE id = $1', [id]);
+          res.status(200).json({ message: "Document supprimé avec succès." });
+      });
+  } catch (err) {
+      res.status(500).json({ error: err.message });
+  }
+});
+
+// =================================================================================
+// ROUTE POUR ARCHIVER UNE FACTURE EN PDF
+// =================================================================================
+app.post('/api/factures/:id/archive', async (req, res) => {
+  const { id: factureId } = req.params;
+  const client = await pool.connect();
+
+  try {
+      // 1. Récupérer les données complètes de la facture (comme dans GET /api/factures/:id)
+      const factureRes = await client.query('SELECT f.*, t.nom AS client_nom FROM factures f LEFT JOIN tiers t ON f.code_tiers = t.code WHERE f.id = $1', [factureId]);
+      if (factureRes.rowCount === 0) return res.status(404).json({ error: "Facture non trouvée." });
+      const facture = factureRes.rows[0];
+      
+      const lignesRes = await client.query('SELECT * FROM lignes_facture WHERE facture_id = $1', [factureId]);
+      facture.lignes = lignesRes.rows;
+
+      // 2. Générer le HTML à partir du template EJS et des données
+      const htmlContent = await ejs.renderFile(path.join(__dirname, 'views', 'invoice-template.ejs'), { facture });
+      
+      // 3. Lancer Puppeteer pour créer le PDF
+      const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const page = await browser.newPage();
+      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+      
+      const pdfFileName = `facture-${facture.numero_facture.replace(/\//g, '-')}.pdf`;
+      const pdfPath = path.join('uploads', pdfFileName);
+      
+      await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
+      await browser.close();
+
+      // 4. Obtenir les informations du fichier créé
+      const fileStats = fs.statSync(pdfPath);
+
+      // 5. Insérer l'enregistrement dans la table 'documents'
+      const docResult = await client.query(
+          `INSERT INTO documents (nom_document, type_document, nom_fichier_stocke, chemin_fichier, type_mime, taille_fichier, facture_id, envoi_id)
+           VALUES ($1, $2, $3, $4, 'application/pdf', $5, $6, $7) RETURNING *`,
+          [
+              `Facture ${facture.numero_facture}`,
+              facture.type_facture,
+              pdfFileName,
+              pdfPath,
+              fileStats.size,
+              facture.id,
+              facture.envoi_id
+          ]
+      );
+
+      res.status(201).json({ message: `Facture ${facture.numero_facture} archivée avec succès.`, document: docResult.rows[0] });
+
+  } catch (err) {
+      console.error("Erreur d'archivage de la facture:", err);
+      res.status(500).json({ error: "Erreur lors de l'archivage.", details: err.message });
+  } finally {
+      client.release();
+  }
+});
 
 // =================================================================================
 // ROUTES DE L'API

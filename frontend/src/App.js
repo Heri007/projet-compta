@@ -26,6 +26,7 @@ import CreationEnvoiUniquePage from './pages/CreationEnvoiUniquePage';
 import InvoicePage from './pages/InvoicePage';
 import ImmobilisationsPage from './pages/ImmobilisationsPage';
 import SuiviExportationPage from './pages/SuiviExportationPage';
+import DocumentationPage from './pages/DocumentationPage';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -214,6 +215,11 @@ export default function App() {
       case 'plan_comptable': return <PlanComptable comptes={planComptable} refreshData={fetchData} />;
       case 'tiers': return <Tiers tiers={tiers} envois={envois} refreshData={fetchData} setPage={setPage} planComptable={planComptable}  />;
       case 'reporting': return <ReportingPage comptes={planComptable} ecritures={ecritures} dateCloture={dateCloture} initialSelectedReportId={targetReportId} />;
+      case 'documentation': 
+            return <DocumentationPage 
+                        envois={envois} 
+                        factures={factures}
+                    />;
       case 'import': return <PlaceholderPage title="Import / Export" />;
       case 'parametres': return <ParametresPage dateCloture={dateCloture} setDateCloture={setDateCloture} />;
       case 'creation_facture': return <CreationFacturePage tiers={tiers} envois={envois} setPage={setPage} factureIdToConvert={subId} refreshData={fetchData} />;
