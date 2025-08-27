@@ -1,15 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import axios from 'axios';
 import { genererDonneesTableauImmobilisations } from '../utils/annexeHelper';
-// import PageHeader from '../components/PageHeader'; // Ligne retirée
 import PrintPreviewModal from '../components/PrintPreviewModal';
+import ReportToolbar from '../components/reporting/ReportToolbar';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const formatCurrency = (val) => {
     if (val === 0 || !val) return '-';
     return val.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
 };
 
-
-// Note 1: Contenu textuel statique
+// --- SOUS-COMPOSANTS (inchangés) ---
 const NotePrincipesComptables = () => (
     <section>
         <h3 className="text-lg font-bold border-b mb-2 pb-1">Note 1 : Règles et méthodes comptables</h3>
@@ -22,7 +24,6 @@ const NotePrincipesComptables = () => (
     </section>
 );
 
-// Note 2: Tableau quantitatif dynamique
 const NoteActifsImmobilises = ({ dataImmobilisations }) => (
     <section className="mt-6">
         <h3 className="text-lg font-bold border-b mb-2 pb-1">Note 2 : Mouvements des Actifs Immobilisés</h3>
@@ -50,35 +51,59 @@ const NoteActifsImmobilises = ({ dataImmobilisations }) => (
 );
 
 
-const AnnexePage = ({ ecritures, dateCloture }) => {
+// --- COMPOSANT PRINCIPAL (corrigé) ---
+const AnnexePage = ({ comptes, ecritures, dateCloture }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const dataImmobilisations = useMemo(() => genererDonneesTableauImmobilisations(ecritures, dateCloture), [ecritures, dateCloture]);
+    const [isArchiving, setIsArchiving] = useState(false);
+    const reportContentRef = useRef(null);
+    
+    // Ajout d'une vérification : on ne calcule que si les données sont prêtes
+    const dataImmobilisations = useMemo(() => {
+        if (!ecritures || !dateCloture) return {}; // Retourne un objet vide si les données sont absentes
+        return genererDonneesTableauImmobilisations(ecritures, dateCloture);
+    }, [ecritures, dateCloture]);
+
+    const handleArchive = async () => {
+        if (!reportContentRef.current) return;
+        
+        const reportHtml = reportContentRef.current.innerHTML;
+        const reportTitle = `Annexe aux États Financiers au ${dateCloture.toLocaleDateString('fr-FR')}`;
+
+        setIsArchiving(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/reports/archive`, { reportTitle, reportHtml });
+            alert(response.data.message);
+        } catch (err) {
+            alert(err.response?.data?.error || "Erreur d'archivage.");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
 
     const AnnexeContent = () => (
-        <>
+        // Le commentaire a été retiré, le code est maintenant valide
+        <div ref={reportContentRef}>
             <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold">Annexe aux États Financiers</h2>
-                <p>Exercice clos le {dateCloture.toLocaleDateString('fr-FR')}</p>
+                <p>Exercice clos le {dateCloture ? dateCloture.toLocaleDateString('fr-FR') : '...'}</p>
             </div>
             <div className="space-y-6">
                 <NotePrincipesComptables />
                 <NoteActifsImmobilises dataImmobilisations={dataImmobilisations} />
-                {/* D'autres notes viendront s'ajouter ici... */}
             </div>
-        </>
+        </div>
     );
 
     return (
         <div className="p-8 h-full overflow-y-auto bg-white">
-             <div className="flex justify-end mb-4">
-                <button 
-                    onClick={() => setIsPreviewOpen(true)} 
-                    className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transform transition"
-                >
-                    🖨️ Imprimer / Aperçu
-                </button>
-            </div>
+            <ReportToolbar 
+                onPrintClick={() => setIsPreviewOpen(true)}
+                onArchiveClick={handleArchive}
+                isArchiving={isArchiving}
+            />
+
             <AnnexeContent />
+            
             <PrintPreviewModal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title="Aperçu - Annexe aux États Financiers">
                 <AnnexeContent />
             </PrintPreviewModal>

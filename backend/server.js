@@ -340,6 +340,55 @@ app.post('/api/factures/:id/archive', async (req, res) => {
 });
 
 // =================================================================================
+// ROUTE POUR ARCHIVER UN RAPPORT FINANCIER EN PDF
+// =================================================================================
+app.post('/api/reports/archive', async (req, res) => {
+  // On reçoit le HTML brut du rapport et son titre depuis le frontend
+  const { reportTitle, reportHtml } = req.body;
+  const client = await pool.connect();
+
+  if (!reportTitle || !reportHtml) {
+      return res.status(400).json({ error: "Titre et contenu HTML du rapport sont requis." });
+  }
+
+  try {
+      // 1. Générer le HTML final avec le template EJS
+      const finalHtml = await ejs.renderFile(
+          path.join(__dirname, 'views', 'report-template.ejs'), 
+          { title: reportTitle, reportHtml: reportHtml }
+      );
+      
+      // 2. Lancer Puppeteer pour créer le PDF
+      const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const page = await browser.newPage();
+      await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
+      
+      const safeTitle = reportTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const pdfFileName = `rapport_${safeTitle}_${Date.now()}.pdf`;
+      const pdfPath = path.join('uploads', pdfFileName);
+      
+      await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
+      await browser.close();
+
+      // 3. Obtenir les infos du fichier et l'enregistrer dans la BDD
+      const fileStats = fs.statSync(pdfPath);
+      const docResult = await client.query(
+          `INSERT INTO documents (nom_document, type_document, nom_fichier_stocke, chemin_fichier, type_mime, taille_fichier)
+           VALUES ($1, $2, $3, $4, 'application/pdf', $5) RETURNING *`,
+          [ reportTitle, "Rapport Financier", pdfFileName, pdfPath, fileStats.size ]
+      );
+
+      res.status(201).json({ message: `Rapport "${reportTitle}" archivé avec succès.`, document: docResult.rows[0] });
+
+  } catch (err) {
+      console.error("Erreur d'archivage du rapport:", err);
+      res.status(500).json({ error: "Erreur lors de l'archivage.", details: err.message });
+  } finally {
+      client.release();
+  }
+});
+
+// =================================================================================
 // ROUTES DE L'API
 // =================================================================================
 

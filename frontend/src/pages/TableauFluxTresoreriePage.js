@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react'; 
+import axios from 'axios'; 
 import { genererDonneesTFT } from '../utils/tftHelper';
-// import PageHeader from '../components/PageHeader'; // Ligne retirée
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils'; 
+import ReportToolbar from '../components/reporting/ReportToolbar';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const TftRow = ({ libelle, montant, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b"}>
@@ -13,22 +16,41 @@ const TftRow = ({ libelle, montant, isTotal = false, isSubTotal = false, indent 
 
 const TableauFluxTresoreriePage = ({ comptes, ecritures, dateCloture }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [isArchiving, setIsArchiving] = useState(false);
+    const reportContentRef = useRef(null);
     const tftData = useMemo(() => genererDonneesTFT(comptes, ecritures, dateCloture), [comptes, ecritures, dateCloture]);
 
+    const handleArchive = async () => {
+        if (!reportContentRef.current) return;
+        
+        const reportHtml = reportContentRef.current.innerHTML;
+        const reportTitle = `Tableau des Flux de Trésorerie au ${dateCloture.toLocaleDateString('fr-FR')}`;
+
+        setIsArchiving(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/reports/archive`, { reportTitle, reportHtml });
+            alert(response.data.message);
+        } catch (err) {
+            alert(err.response?.data?.error || "Erreur d'archivage.");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
+    // Sécurité : si tftData n'est pas prêt, on affiche un message
+    if (!tftData) {
+        return <div className="p-8 text-center text-gray-500">Calcul des flux de trésorerie...</div>;
+    }
     const TftContent = () => (
-        <>
+        // Lier la référence au conteneur du contenu
+        <div ref={reportContentRef}>
             <div className="text-center mb-4">
                 <h2 className="text-2xl font-bold">Tableau des Flux de Trésorerie</h2>
                 <p>(Méthode Indirecte)</p>
                 <p>Exercice clos le {dateCloture.toLocaleDateString('fr-FR')} - Unité : ARIARY</p>
             </div>
             <table className="w-full text-sm">
-                <thead>
-                    <tr className="border-b-2 border-black">
-                        <th className="p-2 text-left w-2/3">Libellés</th>
-                        <th className="p-2 text-right">Montant</th>
-                    </tr>
-                </thead>
+                {/* ... (le contenu du tableau reste le même) ... */}
                 <tbody>
                     <tr className="bg-gray-800 text-white font-bold"><td colSpan="2" className="p-1">Flux de trésorerie liés à l'activité</td></tr>
                     <TftRow libelle="Résultat net de l'exercice" montant={tftData.resultatNetN} />
@@ -63,17 +85,20 @@ const TableauFluxTresoreriePage = ({ comptes, ecritures, dateCloture }) => {
                     <TftRow libelle="Variation de trésorerie" montant={tftData.tresorerieCloture - tftData.tresorerieOuverture} isSubTotal />
                 </tbody>
             </table>
-        </>
+        </div>
     );
 
     return (
         <div className="p-4 h-full overflow-y-auto bg-white">
-            <div className="flex justify-end mb-4">
-                <button onClick={() => setIsPreviewOpen(true)} className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transform transition">
-                    🖨️ Imprimer / Aperçu
-                </button>
-            </div>
+            {/* 8. Remplacer l'ancien bouton par la barre d'outils */}
+            <ReportToolbar 
+                onPrintClick={() => setIsPreviewOpen(true)}
+                onArchiveClick={handleArchive}
+                isArchiving={isArchiving}
+            />
+            
             <TftContent />
+            
             <PrintPreviewModal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title="Aperçu - Tableau des Flux de Trésorerie">
                 <TftContent />
             </PrintPreviewModal>

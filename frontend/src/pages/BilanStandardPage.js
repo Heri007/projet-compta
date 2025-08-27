@@ -1,7 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef  } from 'react';
 import { genererDonneesBilanComplet } from '../utils/bilanHelper';
 import PrintPreviewModal from '../components/PrintPreviewModal';
-import { formatNumber } from '../utils/formatUtils'; 
+import { formatNumber } from '../utils/formatUtils';
+import axios from 'axios'; 
+import ReportToolbar from '../components/reporting/ReportToolbar';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 // --- ACTIF ---
 const BilanActifRow = ({ libelle, montantBrut, amortissements, montantNet, isTotal = false, isSubTotal = false, indent = false }) => (
@@ -88,13 +92,32 @@ const BilanPassif = ({ data }) => (
 // --- COMPOSANT PRINCIPAL (inchangé) ---
 const BilanStandardPage = ({ comptes, ecritures, dateCloture }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
+    const [isArchiving, setIsArchiving] = useState(false);
+    const reportContentRef = useRef(null);
     // Votre helper `genererDonneesBilanComplet` doit être mis à jour pour que data.TOTAL.totalNet existe.
     const { actif, passif } = useMemo(() => genererDonneesBilanComplet(comptes, ecritures), [comptes, ecritures]);
     const isEquilibre = Math.abs(actif.TOTAL.totalNet - passif.TOTAL.totalNet) < 0.01;
 
+    // --- NOUVELLE FONCTION POUR GÉRER L'ARCHIVAGE ---
+    const handleArchive = async () => {
+        if (!reportContentRef.current) return;
+        
+        const reportHtml = reportContentRef.current.innerHTML;
+        const reportTitle = `Bilan Standard au ${dateCloture.toLocaleDateString('fr-FR')}`;
+
+        setIsArchiving(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/reports/archive`, { reportTitle, reportHtml });
+            alert(response.data.message);
+        } catch (err) {
+            alert(err.response?.data?.error || "Erreur d'archivage.");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
     const BilanContent = () => (
-        <>
+        <div ref={reportContentRef}>
             <div className="text-center mb-4">
                 <h2 className="text-2xl font-bold">Bilan Standard</h2>
                 <p>Au : {dateCloture ? dateCloture.toLocaleDateString('fr-FR') : '[Date non définie]'} - Unité : ARIARY</p>
@@ -108,19 +131,20 @@ const BilanStandardPage = ({ comptes, ecritures, dateCloture }) => {
             <div className={`mt-6 p-4 text-center font-bold text-lg rounded-md ${isEquilibre ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {isEquilibre ? `Bilan équilibré : ${formatNumber(actif.TOTAL.totalNet)}` : `Déséquilibre de : ${formatNumber(actif.TOTAL.totalNet - passif.TOTAL.totalNet)}`}
             </div>
-        </>
+        </div>
     );
 
     return (
         <div className="p-4 h-full overflow-y-auto bg-white">
             <div className="flex justify-end mb-4">
-                <button
-                    onClick={() => setIsPreviewOpen(true)}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transform transition"
-                >
-                    🖨️ Imprimer / Aperçu
-                </button>
+                
             </div>
+            {/* On utilise notre nouvelle barre d'outils */}
+            <ReportToolbar 
+                onPrintClick={() => setIsPreviewOpen(true)}
+                onArchiveClick={handleArchive}
+                isArchiving={isArchiving}
+            />
             
             <BilanContent />
             

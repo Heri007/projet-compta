@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react'; 
+import axios from 'axios';
 import { genererDonneesResultat } from '../utils/compteDeResultatHelper';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils'; 
+import ReportToolbar from '../components/reporting/ReportToolbar';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const ResultatRow = ({ libelle, montant, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b hover:bg-blue-50"}>
         <td className={`p-1 ${indent ? 'pl-8' : ''}`}>{libelle}</td>
@@ -82,9 +85,28 @@ const ResultatContent = ({ resultat, dateCloture }) => {
 // --- COMPOSANT PRINCIPAL ---
 const CompteDeResultatPage = ({ comptes, ecritures, dateCloture }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [isArchiving, setIsArchiving] = useState(false);
+    const reportContentRef = useRef(null);
 
     // Le calcul des données reste le même
     const resultatData = useMemo(() => genererDonneesResultat(comptes, ecritures), [comptes, ecritures]);
+
+    const handleArchive = async () => {
+        if (!reportContentRef.current) return;
+        
+        const reportHtml = reportContentRef.current.innerHTML;
+        const reportTitle = `Compte de Résultat au ${dateCloture.toLocaleDateString('fr-FR')}`;
+
+        setIsArchiving(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/reports/archive`, { reportTitle, reportHtml });
+            alert(response.data.message);
+        } catch (err) {
+            alert(err.response?.data?.error || "Erreur d'archivage.");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
 
     // --- SÉCURITÉ : On vérifie si les données sont prêtes avant de les afficher ---
     if (!resultatData || !resultatData.sections) {
@@ -95,25 +117,29 @@ const CompteDeResultatPage = ({ comptes, ecritures, dateCloture }) => {
         );
     }
 
+    const FinalResultatContent = () => (
+        <div ref={reportContentRef}>
+            <ResultatContent resultat={resultatData} dateCloture={dateCloture} />
+        </div>
+    );
+
     return (
         <div className="p-4 h-full overflow-y-auto bg-white">
-            <div className="flex justify-end mb-4">
-                 <button
-                    onClick={() => setIsPreviewOpen(true)}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transform transition"
-                >
-                    🖨️ Imprimer / Aperçu
-                </button>
-            </div>
+            {/* 7. Remplacer l'ancien bouton par la barre d'outils */}
+            <ReportToolbar 
+                onPrintClick={() => setIsPreviewOpen(true)}
+                onArchiveClick={handleArchive}
+                isArchiving={isArchiving}
+            />
             
-            <ResultatContent resultat={resultatData} dateCloture={dateCloture} />
+            <FinalResultatContent />
 
             <PrintPreviewModal 
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}
                 title="Aperçu avant impression - Compte de Résultat Standard"
             >
-                <ResultatContent resultat={resultatData} dateCloture={dateCloture} />
+                <FinalResultatContent />
             </PrintPreviewModal>
         </div>
     );

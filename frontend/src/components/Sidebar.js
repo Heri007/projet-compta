@@ -26,25 +26,24 @@ const Sidebar = ({ page, setPage }) => {
     // Section Principale
     { id: 'dashboard', icon: '📊', label: 'Tableau de bord' },
     { id: 'entreprise', icon: '🏢', label: 'Entreprise' },
+    { id: 'ecritures', icon: '✍️', label: 'Écritures Comptables' },
     
     // Section Opérationnelle
     { id: 'envoi', icon: '✈️', label: 'Envois' },
     { id: 'liste_ventes', icon: '🧾', label: 'Factures de Vente' },
-    { id: 'documentation', icon: '📁', label: 'Documentation' }, // <-- Placé ici logiquement
-
+    
     // Section Tiers & Articles
     { id: 'tiers', icon: '👥', label: 'Gestion des Tiers' },
     { id: 'articles_stocks', icon: '📦', label: 'Articles & Stocks' },
     { id: 'immobilisations', icon: '🏛️', label: 'Immobilisations' },
     
     // Section Comptabilité Pure
-    { id: 'ecritures', icon: '✍️', label: 'Écritures Comptables' },
-    { id: 'plan_comptable', icon: '🏦', label: 'Plan Comptable' },
     { id: 'reporting', icon: '📋', label: 'États & Reporting' },
-
+    { id: 'plan_comptable', icon: '🏦', label: 'Plan Comptable' },
     // Section Utilitaires
-    { id: 'import', icon: '📥', label: 'Import/Export' },
+    //{ id: 'import', icon: '📥', label: 'Import/Export' },
     { id: 'parametres', icon: '⚙️', label: 'Paramètres' },
+    { id: 'documentation', icon: '📁', label: 'Documentation' }, // <-- Placé ici logiquement
   ];
 
   return (

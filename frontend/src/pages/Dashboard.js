@@ -19,6 +19,10 @@ const StatCard = ({ title, value, icon, color, onClick }) => (
   </button>
 );
 
+// --- CORRECTION : Définir le style de l'en-tête pour les widgets ---
+  // On utilise une classe arbitraire de Tailwind CSS pour la couleur #fcd4c5
+  // et on choisit une couleur de texte sombre pour le contraste.
+  const widgetHeaderStyle = "px-4 py-3 font-bold text-gray-800 bg-[#c5eafc]";
 
 const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], envois = [], factures = [], mouvements = [], setPage, navigateToReport }) => {    
   
@@ -90,6 +94,16 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
   }, [planComptable, ecritures, tiers, articles, envois, mouvements, factures]);
   const formatCurrency = (val) => `${(val || 0).toLocaleString('fr-FR')} Ar`;
 
+  // --- CORRECTION : NOUVELLE FONCTION POUR LES QUANTITÉS EN KG ---
+  const formatQuantity = (val) => {
+    // S'assure que la valeur est un nombre
+    const num = parseFloat(val);
+    // Si ce n'est pas un nombre valide ou si c'est zéro, n'affiche rien ou '0 Kg'
+    if (isNaN(num)) return 'N/A';
+    // Formate le nombre sans décimales et ajoute l'unité
+    return `${num.toLocaleString('fr-FR')} Kg`;
+};
+
   return (
     <div className="p-8">
       <PageHeader title="Tableau de bord" subtitle="Vue d'ensemble de votre activité financière." />
@@ -126,7 +140,7 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <WidgetCard title="Actions Rapides">
+      <WidgetCard title="Actions Rapides" headerClassName={widgetHeaderStyle}>
           <div className="grid grid-cols-2 gap-4">
             <button onClick={() => setPage('creation_client_envoi')} className="p-4 bg-gray-100 rounded-lg hover:bg-blue-100 text-center font-semibold">🚀 Nouveau Client & Envoi</button>
             <button onClick={() => setPage('saisie')} className="p-4 bg-gray-100 rounded-lg hover:bg-blue-100 text-center font-semibold">✍️ Saisir une Écriture</button>
@@ -139,7 +153,7 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
         {/* --- AJOUT DU WIDGET DE TAUX DE CHANGE --- */}
         <TauxDeChangeWidget />
 
-        <WidgetCard title="Dernières Opérations (par pièce)">
+        <WidgetCard title="Dernières Opérations (par pièce)" headerClassName={widgetHeaderStyle}>
           <ul className="space-y-2 h-48 overflow-y-auto">
             {dashboardData.dernieresOperations.length > 0 ? (
               dashboardData.dernieresOperations.map(op => (
@@ -154,7 +168,7 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
           </ul>
         </WidgetCard>
 
-        <WidgetCard title="Envois Récents">
+        <WidgetCard title="Envois Récents" headerClassName={widgetHeaderStyle}>
   <div className="h-48 overflow-y-auto">
     <table className="min-w-full text-sm">
       <thead className="sticky top-0 bg-white">
@@ -215,7 +229,7 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
   </div>
 </WidgetCard>
 
-        <WidgetCard title="Derniers Mouvements de Stock">
+<WidgetCard title="Derniers Mouvements de Stock" headerClassName={widgetHeaderStyle}>
           <div className="h-48 overflow-y-auto">
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 bg-white">
@@ -231,13 +245,21 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
                     <tr key={mvt.id} className="border-t">
                       <td className="py-2">
                         <div className="font-semibold">{mvt.designation}</div>
-                        <div className="text-xs text-gray-400">{new Date(mvt.date).toLocaleDateString('fr-FR')}</div>
+                        <div className="text-xs text-red-400 font-bold"><i>{new Date(mvt.date).toLocaleDateString('fr-FR')}</i></div>
                       </td>
-                      <td className={`py-2 text-right font-mono font-bold ${mvt.type === 'Entrée' ? 'text-green-600' : 'text-red-600'}`}>
-                        {mvt.type === 'Entrée' ? '+' : '-'} {formatCurrency(mvt.quantite)}
+                      {/* --- MODIFICATION ICI : Créer une structure div pour les deux lignes --- */}
+                      <td className="py-2 text-right">
+                        {/* Ligne 1 : Le mouvement (quantité) */}
+                        <div className={`font-mono font-bold ${mvt.type === 'Entrée' ? 'text-green-600' : 'text-red-600'}`}>
+                            {mvt.type === 'Entrée' ? '+' : '-'} {formatQuantity(mvt.quantite)}
+                        </div>
+                        {/* Ligne 2 : Le statut (Entrée/Sortie) avec le style de la date */}
+                        <div className="text-xs text-red-400 font-bold">
+                        <i>{mvt.type}</i>
+                        </div>
                       </td>
                       <td className="py-2 text-right font-mono">
-                        {formatCurrency(mvt.stockActuel)}
+                      {formatQuantity(mvt.quantite)}
                       </td>
                     </tr>
                   ))

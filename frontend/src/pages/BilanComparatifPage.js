@@ -1,8 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import axios from 'axios';
 import { genererDonneesBilanComparatif } from '../utils/bilanHelperN1';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils'; 
+import ReportToolbar from '../components/reporting/ReportToolbar'; // 2. Importer la barre d'outils
 
+// 3. Définir l'URL de l'API
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 // --- MIS À JOUR POUR AFFICHER LES 4 COLONNES ---
 const BilanRow = ({ libelle, N, N1, isTotal = false, isSubTotal = false, indent = false }) => (
     <tr className={isTotal ? "bg-gray-200 font-bold" : isSubTotal ? "bg-gray-100 font-semibold" : "border-b hover:bg-blue-50"}>
@@ -92,12 +96,32 @@ const BilanPassif = ({ data }) => (
 
 const BilanComparatifPage = ({ comptes, ecritures, dateCloture }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [isArchiving, setIsArchiving] = useState(false);
+    const reportContentRef = useRef(null);
     const { actif, passif } = useMemo(() => genererDonneesBilanComparatif(comptes, ecritures, dateCloture), [comptes, ecritures, dateCloture]);
-    const isEquilibreN = Math.abs(actif.TOTAL_N - passif.TOTAL_N) < 0.01;
-    const isEquilibreN1 = Math.abs(actif.TOTAL_N1 - passif.TOTAL_N1) < 0.01;
+    // Correction de la vérification de l'équilibre
+    const isEquilibreN = Math.abs((actif.TOTAL?.N?.net || 0) - (passif.TOTAL_N || 0)) < 0.01;
+    const isEquilibreN1 = Math.abs((actif.TOTAL?.N1?.net || 0) - (passif.TOTAL_N1 || 0)) < 0.01;
 
+    // la fonction d'archivage
+    const handleArchive = async () => {
+        if (!reportContentRef.current) return;
+        
+        const reportHtml = reportContentRef.current.innerHTML;
+        const reportTitle = `Bilan Comparatif au ${dateCloture.toLocaleDateString('fr-FR')}`;
+
+        setIsArchiving(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/reports/archive`, { reportTitle, reportHtml });
+            alert(response.data.message);
+        } catch (err) {
+            alert(err.response?.data?.error || "Erreur d'archivage.");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
     const BilanContent = () => (
-        <>
+        <div ref={reportContentRef}>
             <div className="text-center mb-4">
                 <h2 className="text-2xl font-bold">Bilan Comparatif</h2>
                 <p>Au : {dateCloture.toLocaleDateString('fr-FR')} - Unité : ARIARY</p>
@@ -109,20 +133,20 @@ const BilanComparatifPage = ({ comptes, ecritures, dateCloture }) => {
             <div className={`mt-6 p-4 text-center font-bold text-lg rounded-md ${isEquilibreN && isEquilibreN1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {isEquilibreN && isEquilibreN1 ? `Bilans équilibrés` : `Déséquilibre détecté`}
             </div>
-        </>
+        </div>
     );
 
     return (
         <div className="p-4 h-full overflow-y-auto bg-white">
-            <div className="flex justify-end mb-4">
-                <button
-                    onClick={() => setIsPreviewOpen(true)}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transform transition"
-                >
-                    🖨️ Imprimer / Aperçu
-                </button>
-            </div>
+            {/* 7. Remplacer l'ancien bouton par la barre d'outils */}
+            <ReportToolbar 
+                onPrintClick={() => setIsPreviewOpen(true)}
+                onArchiveClick={handleArchive}
+                isArchiving={isArchiving}
+            />
+            
             <BilanContent />
+            
             <PrintPreviewModal 
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}

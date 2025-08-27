@@ -8,6 +8,8 @@ import { REPORTS_DATA } from '../data/reportsData';
 import TableauFluxTresoreriePage from './TableauFluxTresoreriePage';
 import TableauVariationCapitauxPropresPage from './TableauVariationCapitauxPropresPage';
 import AnnexePage from './AnnexePage';
+import BalanceStandardPage from './BalanceStandardPage';
+import BalanceComparatifPage from './BalanceComparatifPage';
 
 import ReportTreeItem from '../components/reporting/ReportTreeItem';
 // --- Fonction utilitaire pour retrouver un rapport par son ID ---
@@ -62,6 +64,10 @@ const headerGradientClass = "px-4 py-3 font-bold text-white bg-gradient-to-r fro
                 return <TableauFluxTresoreriePage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
             case 'tvcp_std':
                 return <TableauVariationCapitauxPropresPage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
+            case 'balance_std':
+                    return <BalanceStandardPage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
+            case 'balance_comp':
+                    return <BalanceComparatifPage comptes={comptes} ecritures={ecritures} dateCloture={dateCloture} />;
             case 'annexe_std':
                 return <AnnexePage ecritures={ecritures} dateCloture={dateCloture} />;
             default:
