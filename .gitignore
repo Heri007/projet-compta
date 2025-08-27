@@ -60,3 +60,6 @@ Thumbs.db
 # ==============================
 *.bak
 *.tmp
+
+# Ignorer le dossier des fichiers téléversés par les utilisateurs
+backend/uploads/
