@@ -282,84 +282,59 @@ app.delete('/api/documents/:id', async (req, res) => {
 });
 
 // =================================================================================
-// ROUTE POUR ARCHIVER UNE FACTURE EN PDF
+// ROUTE POUR ARCHIVER UNE FACTURE EN PDF (CORRIGÉE)
 // =================================================================================
 app.post('/api/factures/:id/archive', async (req, res) => {
   const { id: factureId } = req.params;
   const client = await pool.connect();
-
   try {
-      // 1. Récupérer les données complètes de la facture (comme dans GET /api/factures/:id)
       const factureRes = await client.query('SELECT f.*, t.nom AS client_nom FROM factures f LEFT JOIN tiers t ON f.code_tiers = t.code WHERE f.id = $1', [factureId]);
       if (factureRes.rowCount === 0) return res.status(404).json({ error: "Facture non trouvée." });
       const facture = factureRes.rows[0];
-      
       const lignesRes = await client.query('SELECT * FROM lignes_facture WHERE facture_id = $1', [factureId]);
       facture.lignes = lignesRes.rows;
 
-      // 2. Générer le HTML à partir du template EJS et des données
-      const htmlContent = await ejs.renderFile(path.join(__dirname, 'views', 'invoice-template.ejs'), { facture });
+      // --- CORRECTION MAJEURE : INJECTER LE CSS ---
+      const cssContent = fs.readFileSync(path.join(__dirname, '../frontend/public/document-styles.css'), 'utf8');
+      const htmlContent = await ejs.renderFile(path.join(__dirname, 'views', 'invoice-template.ejs'), { facture, styles: cssContent });
       
-      // 3. Lancer Puppeteer pour créer le PDF
-      const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
       await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
       
-      const pdfFileName = `facture-${facture.numero_facture.replace(/\//g, '-')}.pdf`;
+      const pdfFileName = `facture-${facture.numero_facture.replace(/[\/\\?%*:|"<>]/g, '-')}.pdf`;
       const pdfPath = path.join('uploads', pdfFileName);
       
       await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
       await browser.close();
 
-      // 4. Obtenir les informations du fichier créé
       const fileStats = fs.statSync(pdfPath);
-
-      // 5. Insérer l'enregistrement dans la table 'documents'
       const docResult = await client.query(
           `INSERT INTO documents (nom_document, type_document, nom_fichier_stocke, chemin_fichier, type_mime, taille_fichier, facture_id, envoi_id)
            VALUES ($1, $2, $3, $4, 'application/pdf', $5, $6, $7) RETURNING *`,
-          [
-              `Facture ${facture.numero_facture}`,
-              facture.type_facture,
-              pdfFileName,
-              pdfPath,
-              fileStats.size,
-              facture.id,
-              facture.envoi_id
-          ]
+          [`Facture ${facture.numero_facture}`, facture.type_facture, pdfFileName, pdfPath, fileStats.size, facture.id, facture.envoi_id]
       );
-
-      res.status(201).json({ message: `Facture ${facture.numero_facture} archivée avec succès.`, document: docResult.rows[0] });
-
+      res.status(201).json({ message: `Facture ${facture.numero_facture} archivée.`, document: docResult.rows[0] });
   } catch (err) {
       console.error("Erreur d'archivage de la facture:", err);
       res.status(500).json({ error: "Erreur lors de l'archivage.", details: err.message });
-  } finally {
-      client.release();
-  }
+  } finally { client.release(); }
 });
 
 // =================================================================================
-// ROUTE POUR ARCHIVER UN RAPPORT FINANCIER EN PDF
+// ROUTE POUR ARCHIVER UN RAPPORT FINANCIER EN PDF (CORRIGÉE)
 // =================================================================================
 app.post('/api/reports/archive', async (req, res) => {
-  // On reçoit le HTML brut du rapport et son titre depuis le frontend
   const { reportTitle, reportHtml } = req.body;
   const client = await pool.connect();
-
-  if (!reportTitle || !reportHtml) {
-      return res.status(400).json({ error: "Titre et contenu HTML du rapport sont requis." });
-  }
+  if (!reportTitle || !reportHtml) return res.status(400).json({ error: "Titre et contenu requis." });
 
   try {
-      // 1. Générer le HTML final avec le template EJS
-      const finalHtml = await ejs.renderFile(
-          path.join(__dirname, 'views', 'report-template.ejs'), 
-          { title: reportTitle, reportHtml: reportHtml }
-      );
-      
-      // 2. Lancer Puppeteer pour créer le PDF
-      const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      // --- CORRECTION MAJEURE : INJECTER LE CSS ---
+      const cssContent = fs.readFileSync(path.join(__dirname, '../frontend/public/document-styles.css'), 'utf8');
+      const finalHtml = await ejs.renderFile(path.join(__dirname, 'views', 'report-template.ejs'), { title: reportTitle, reportHtml: reportHtml, styles: cssContent });
+
+      const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
       await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
       
@@ -370,22 +345,17 @@ app.post('/api/reports/archive', async (req, res) => {
       await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
       await browser.close();
 
-      // 3. Obtenir les infos du fichier et l'enregistrer dans la BDD
       const fileStats = fs.statSync(pdfPath);
       const docResult = await client.query(
           `INSERT INTO documents (nom_document, type_document, nom_fichier_stocke, chemin_fichier, type_mime, taille_fichier)
            VALUES ($1, $2, $3, $4, 'application/pdf', $5) RETURNING *`,
-          [ reportTitle, "Rapport Financier", pdfFileName, pdfPath, fileStats.size ]
+          [reportTitle, "Rapport Financier", pdfFileName, pdfPath, fileStats.size]
       );
-
-      res.status(201).json({ message: `Rapport "${reportTitle}" archivé avec succès.`, document: docResult.rows[0] });
-
+      res.status(201).json({ message: `Rapport "${reportTitle}" archivé.`, document: docResult.rows[0] });
   } catch (err) {
       console.error("Erreur d'archivage du rapport:", err);
       res.status(500).json({ error: "Erreur lors de l'archivage.", details: err.message });
-  } finally {
-      client.release();
-  }
+  } finally { client.release(); }
 });
 
 // =================================================================================

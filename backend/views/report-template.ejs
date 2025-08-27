@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title><%= title %></title>
-    <!-- AJOUTER CETTE LIGNE -->
-    <link rel="stylesheet" href="http://localhost:3000/document-styles.css">
-    <!-- SUPPRIMER L'ANCIENNE BALISE <style>...</style> -->
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <style></style>
+        <title>Facture <%= facture.numero_facture %></title>
+        /* <%# injection du CSS backend %> */    
+    <%- styles %></style>
+    </head>
 <body>
-    <div class="report-container">
-        <%- reportHtml %> 
-    </div>
+    <!-- Le HTML du rapport généré par React sera injecté ici -->
+    <%- reportHtml %> 
 </body>
 </html>

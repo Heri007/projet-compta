@@ -2,16 +2,18 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Facture <%= facture.numero_facture %></title>
-    <!-- AJOUTER CETTE LIGNE -->
-    <link rel="stylesheet" href="http://localhost:3000/document-styles.css">
-    <!-- SUPPRIMER L'ANCIENNE BALISE <style>...</style> -->
+    style></style>
+        <title>Facture <%= facture.numero_facture %></title>
+        /* <%# injection du CSS backend %> */    
+    <%- styles %></style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <!-- Vous pouvez ajouter une image de logo si elle est accessible publiquement -->
+            <!-- <img src="http://localhost:3000/logo.png" alt="Logo" style="height: 60px; margin-bottom: 10px;"> -->
             <p><strong>VINA EXPORT SARLU</strong></p>
-            <p style="font-size: 10px;">SARLU au capital de 2.000.000 ariary - NIF : 4019364331 - STAT : 46625412025000948</p>
+            <p style="font-size: 9px;">SARLU au capital de 2.000.000 ariary - NIF : 4019364331 - STAT : 46625412025000948</p>
         </div>
 
         <h1>FACTURE</h1>
@@ -21,10 +23,13 @@
                 <p><strong>DATE :</strong> <%= new Date(facture.date_facture).toLocaleDateString('fr-FR') %></p>
                 <p><strong>FACTURE No. :</strong> <%= facture.numero_facture %></p>
                 <p><strong>CLIENT :</strong> <%= facture.client_nom %></p>
+                <p><strong>NATURE DU PRODUIT :</strong> <%= facture.nature_produit || '' %></p>
             </div>
             <div>
-                <p><strong>PAYS D'ORIGINE :</strong> <%= facture.pays_origine %></p>
-                <p><strong>COMPAGNIE MARITIME :</strong> <%= facture.compagnie_maritime %></p>
+                <p><strong>PAYS D'ORIGINE :</strong> <%= facture.pays_origine || '' %></p>
+                <p><strong>COMPAGNIE MARITIME :</strong> <%= facture.compagnie_maritime || '' %></p>
+                <p><strong>PORT D'EMBARQUEMENT :</strong> <%= facture.port_embarquement || '' %></p>
+                <p><strong>NOMENCLATURE DOUANIÈRE :</strong> <%= facture.nomenclature_douaniere || '' %></p>
             </div>
         </div>
 
@@ -41,17 +46,29 @@
                 <% facture.lignes.forEach(ligne => { %>
                     <tr>
                         <td><%= ligne.description %></td>
-                        <td class="text-right"><%= parseFloat(ligne.quantite).toLocaleString('fr-FR') %></td>
-                        <td class="text-right"><%= parseFloat(ligne.prix).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
-                        <td class="text-right"><%= (ligne.quantite * ligne.prix).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
+                        <td class="text-right font-mono"><%= parseFloat(ligne.quantite).toLocaleString('fr-FR') %></td>
+                        <td class="text-right font-mono"><%= parseFloat(ligne.prix).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
+                        <td class="text-right font-mono"><%= (parseFloat(ligne.quantite) * parseFloat(ligne.prix)).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
                     </tr>
                 <% }); %>
-                <tr style="font-weight: bold; background-color: #f7f7f7;">
-                    <td colspan="3" class="text-right">TOTAL</td>
-                    <td class="text-right"><%= parseFloat(facture.montant).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
+                <tr class="total-row">
+                    <td colspan="3" class="text-right"><strong>TOTAL</strong></td>
+                    <td class="text-right font-mono"><strong><%= parseFloat(facture.montant).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></strong></td>
                 </tr>
             </tbody>
         </table>
+        
+        <!-- Ajout des infos bancaires et poids -->
+        <div>
+            <p><strong>Coordonnées Bancaires:</strong> Bank of Africa (B.O.A)</p>
+            <p style="padding-left: 15px;"><strong>Compte :</strong> 00009 03000 25040520003 55</p>
+            <p style="padding-left: 15px;"><strong>IBAN :</strong> MG46 0000 9030 0025 0405 2000 355</p>
+            <p style="padding-left: 15px;"><strong>SWIFT :</strong> AFRIMGMGXXX</p>
+            <br>
+            <p><strong>DOMICILIATION N° & DATE:</strong> <%= facture.domiciliation || '' %></p>
+            <br>
+            <p><strong>Poids Brut:</strong> <%= facture.poids_brut || '' %> &nbsp;&nbsp;&nbsp; <strong>Tare:</strong> <%= facture.tare || '' %> &nbsp;&nbsp;&nbsp; <strong>Poids Net:</strong> <%= facture.poids_net || '' %></p>
+        </div>
 
         <div class="footer">
             <p>Siège social : Lot Secteur 01 Centre A - AMBOROVY - MAHAJANGA 401 - MADAGASCAR</p>
