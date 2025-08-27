@@ -25,6 +25,7 @@ import ListeDesEncaissementsPage from './pages/ListeDesEncaissementsPage';
 import CreationEnvoiUniquePage from './pages/CreationEnvoiUniquePage';
 import InvoicePage from './pages/InvoicePage';
 import ImmobilisationsPage from './pages/ImmobilisationsPage';
+import SuiviExportationPage from './pages/SuiviExportationPage';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -188,7 +189,15 @@ export default function App() {
                   mouvements={mouvements} // Passer la liste des mouvements
                   refreshData={fetchData} 
                 />;
-      case 'envoi': return <EnvoiPage envois={envois} tiers={tiers} setPage={setPage} />;
+      case 'envoi': 
+                return <EnvoiPage envois={envois} tiers={tiers} setPage={setPage} />;
+      case 'suivi_exportation':
+                return <SuiviExportationPage
+                            envoiId={subId}
+                            envois={envois}
+                            factures={factures}
+                            setPage={setPage}
+                        />;
       case 'creation_envoi': 
       case 'creation_client_envoi':
         return <CreationEnvoiUniquePage 
