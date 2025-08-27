@@ -17,6 +17,7 @@ backend/logs/
 backend/*.log
 backend/seed_articles.js
 backend/setup_db.js
+backend/seed_config.js
 
 # ==============================
 # Frontend
