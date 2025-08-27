@@ -1,7 +1,13 @@
-import React, { useMemo, useState } from 'react'; // Importer useState
+import React, { useMemo, useState, useRef } from 'react'; // 1. Importer useRef
+import axios from 'axios'; // 2. Importer axios
 import PageHeader from '../components/PageHeader';
 import PrintPreviewModal from '../components/PrintPreviewModal'; // Importer la modale d'impression
-import JournalPrintPreview from '../components/JournalPrintPreview'; // Importer le composant d'aperçu
+import JournalPrintPreview from '../components/JournalPrintPreview';
+import ReportToolbar from '../components/reporting/ReportToolbar'; // 3. Importer la barre d'outils
+
+// 4. Définir l'URL de l'API
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+ // Importer le composant d'aperçu
 
 const ConsultationEcritures = ({ 
     setPage, 
@@ -15,6 +21,8 @@ const ConsultationEcritures = ({
 
     // --- AJOUT : État pour gérer l'ouverture de la modale d'impression ---
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [isArchiving, setIsArchiving] = useState(false);
+    const reportContentRef = useRef(null);
 
     const formatCurrency = (value) => {
         const num = parseFloat(value);
@@ -53,6 +61,26 @@ const ConsultationEcritures = ({
         handleDelete(numeroPiece);
     };
 
+    const handleArchive = async () => {
+        if (!reportContentRef.current) {
+            alert("Erreur : Le contenu à archiver est introuvable.");
+            return;
+        }
+        
+        const reportHtml = reportContentRef.current.innerHTML;
+        const reportTitle = `Journal Comptable Général`;
+
+        setIsArchiving(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/reports/archive`, { reportTitle, reportHtml });
+            alert(response.data.message);
+        } catch (err) {
+            alert(err.response?.data?.error || "Erreur d'archivage.");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
     return (
         <div className="p-8">
             <PageHeader title="Écritures Comptables" subtitle="Consultation du journal" />
@@ -67,15 +95,12 @@ const ConsultationEcritures = ({
                 >
                     ➕ Saisir une Écriture
                 </button>
-                {/* --- AJOUT : Bouton Imprimer --- */}
-                <button
-                    onClick={() => setIsPreviewOpen(true)}
-                    disabled={piecesComptables.length === 0}
-                    className="px-4 py-2 text-gray-700 bg-gray-200 font-semibold rounded-lg shadow-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    🖨️ Imprimer le Journal
-                </button>
-            </div>
+                    <ReportToolbar 
+                    onPrintClick={() => setIsPreviewOpen(true)}
+                    onArchiveClick={handleArchive}
+                    isArchiving={isArchiving}
+                />
+                </div>
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 {/* --- TABLEAU PRINCIPAL --- */}
@@ -160,10 +185,17 @@ const ConsultationEcritures = ({
                 onClose={() => setIsPreviewOpen(false)} // La fonction de fermeture
                 title="Aperçu du Journal Comptable" // Un titre pour la modale
             >
-                {/* Le contenu à imprimer est passé comme enfant, c'est parfait */}
+                {/* On affiche le contenu imprimable dans la modale */}
                 <JournalPrintPreview piecesComptables={piecesComptables} />
             </PrintPreviewModal>
+
             )}
+{/* Ce div n'est pas visible mais permet à la ref de capturer le bon HTML */}
+            <div style={{ display: 'none' }}>
+                <div ref={reportContentRef}>
+                    <JournalPrintPreview piecesComptables={piecesComptables} />
+                </div>
+            </div>
         </div>
     );
 };

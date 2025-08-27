@@ -1,19 +1,35 @@
+// Fichier : frontend/src/components/PrintPreviewModal.js
+
 import React from 'react';
 
 const PrintPreviewModal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
+  // --- NOUVELLE FONCTION D'IMPRESSION INTELLIGENTE ---
   const handlePrint = () => {
-    // Déclenche la boîte de dialogue d'impression du navigateur
-    window.print();
+    const printArea = document.getElementById('print-area-content');
+    if (!printArea) return;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write('<html><head><title>' + (title || 'Impression') + '</title>');
+    // On injecte le lien vers notre feuille de style centralisée
+    printWindow.document.write('<link rel="stylesheet" href="/document-styles.css">');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(printArea.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    // Un petit délai pour s'assurer que le CSS est chargé
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
   };
 
   return (
-    // Le fond de la modale
-    <div className="fixed inset-0 bg-gray-800/75 flex justify-center items-start z-50 overflow-y-auto p-8">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl animate-fade-in-up">
+    <div className="fixed inset-0 bg-gray-800/75 flex justify-center items-start z-50 overflow-y-auto p-4">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl animate-fade-in-up">
         
-        {/* Barre d'outils - ne sera pas imprimée grâce à la classe "no-print" */}
         <div className="no-print bg-gray-100 p-3 flex justify-between items-center border-b sticky top-0">
           <h3 className="text-lg font-bold text-gray-800">{title}</h3>
           <div className="flex gap-2">
@@ -21,7 +37,7 @@ const PrintPreviewModal = ({ isOpen, onClose, title, children }) => {
               onClick={handlePrint} 
               className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
             >
-              🖨️ Imprimer
+              🖨️ Lancer l'impression
             </button>
             <button 
               onClick={onClose} 
@@ -32,9 +48,8 @@ const PrintPreviewModal = ({ isOpen, onClose, title, children }) => {
           </div>
         </div>
         
-        {/* Zone de contenu qui sera imprimée */}
-        <div id="print-area" className="p-8">
-            {/* Le contenu du rapport est injecté ici */}
+        {/* On donne un ID unique au contenu pour pouvoir le sélectionner */}
+        <div id="print-area-content">
             {children}
         </div>
       </div>

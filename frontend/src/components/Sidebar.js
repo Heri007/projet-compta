@@ -26,6 +26,7 @@ const Sidebar = ({ page, setPage }) => {
     // Section Principale
     { id: 'dashboard', icon: '📊', label: 'Tableau de bord' },
     { id: 'entreprise', icon: '🏢', label: 'Entreprise' },
+    { id: 'clients_ventes', icon: '👨‍💼', label: 'Clients & Ventes' },
     { id: 'ecritures', icon: '✍️', label: 'Écritures Comptables' },
     
     // Section Opérationnelle

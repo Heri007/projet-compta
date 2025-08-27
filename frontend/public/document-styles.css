@@ -1,0 +1,82 @@
+/* Fichier : frontend/public/document-styles.css */
+
+/* --- Styles Généraux --- */
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color: #333;
+    background-color: white; /* Important pour l'impression */
+}
+
+.report-container {
+    max-width: 800px;
+    margin: auto;
+    padding: 20px;
+}
+
+/* --- En-tête et Pied de Page --- */
+.header, .footer {
+    text-align: center;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ccc;
+}
+.footer {
+    border-top: 1px solid #ccc;
+    border-bottom: none;
+    margin-top: 30px;
+    padding-top: 10px;
+    font-size: 9px;
+    color: #777;
+}
+
+/* --- Typographie --- */
+h1, h2, h3 { font-weight: bold; }
+h1 { font-size: 24px; text-align: center; margin: 20px 0; }
+h2 { font-size: 20px; text-align: center; margin-bottom: 15px; }
+h3 { font-size: 14px; border-bottom: 1px solid #eee; margin-bottom: 8px; padding-bottom: 4px; }
+p { margin: 4px 0; }
+strong { font-weight: bold; }
+
+/* --- Tableaux --- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+thead th, thead td {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+.total-row {
+    background-color: #e9e9e9;
+    font-weight: bold;
+}
+.subtotal-row {
+    background-color: #f7f7f7;
+    font-weight: bold;
+}
+
+/* --- Classes Utilitaires --- */
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-mono { font-family: 'Courier New', Courier, monospace; }
+.pl-8 { padding-left: 32px; }
+
+/* --- Classes pour l'impression --- */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    /* La seule règle nécessaire pour .screen-only est ici */
+    .screen-only {
+        display: none !important;
+    }
+}

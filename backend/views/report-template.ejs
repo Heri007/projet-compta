@@ -3,24 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title><%= title %></title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #333; }
-        .report-container { max-width: 800px; margin: auto; }
-        /* Copiez ici les styles de base de vos tableaux de rapport (bordures, couleurs de fond, etc.) */
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { padding: 4px 6px; text-align: left; }
-        .text-right { text-align: right; }
-        .font-mono { font-family: monospace; }
-        .font-bold { font-weight: bold; }
-        .bg-gray-200 { background-color: #e5e7eb; }
-        .bg-gray-800 { background-color: #1f2937; color: white; }
-        .border-b-2 { border-bottom-width: 2px; }
-        .border-black { border-color: #000; }
-    </style>
+    <!-- AJOUTER CETTE LIGNE -->
+    <link rel="stylesheet" href="http://localhost:3000/document-styles.css">
+    <!-- SUPPRIMER L'ANCIENNE BALISE <style>...</style> -->
 </head>
 <body>
     <div class="report-container">
-        <!-- Le HTML complet du rapport sera injecté ici par Puppeteer -->
         <%- reportHtml %> 
     </div>
 </body>
