@@ -29,6 +29,10 @@ const upload = multer({ storage: storage });
 
 // Rendez le dossier "uploads" accessible publiquement pour pouvoir voir les fichiers
 app.use('/uploads', express.static('uploads'));
+
+// Rend le dossier "public" du frontend accessible via l'URL
+app.use(express.static(path.join(__dirname, '../frontend/public')));
+
 app.use(cors());
 app.use(express.json());
 // Configuration du moteur de template EJS
@@ -279,23 +283,6 @@ app.delete('/api/documents/:id', async (req, res) => {
   }
 });
 
-// --- NOUVELLE ROUTE POUR GÉNÉRER LE HTML D'UNE FACTURE ---
-app.post('/api/factures/render-html', async (req, res) => {
-  // On reçoit les données de la facture directement depuis le frontend
-  const factureData = req.body;
-  try {
-      // On utilise notre template EJS avec les données fournies
-      const html = await ejs.renderFile(
-          path.join(__dirname, 'views', 'invoice-template.ejs'),
-          { facture: factureData }
-      );
-      res.send(html); // On renvoie le HTML pur
-  } catch (err) {
-      console.error("Erreur de rendu du template:", err);
-      res.status(500).send("Erreur lors de la génération de l'aperçu.");
-  }
-});
-
 // =================================================================================
 // ROUTE POUR GÉNÉRER LE HTML D'UNE FACTURE POUR L'APERÇU
 // =================================================================================
@@ -386,35 +373,49 @@ app.post('/api/reports/archive', async (req, res) => {
   }
 });
 
-// --- ROUTE D'ARCHIVAGE PDF (MODIFIÉE) ---
+// ROUTE D'ARCHIVAGE SPÉCIFIQUE AUX FACTURES
 app.post('/api/factures/:id/archive', async (req, res) => {
   const { id: factureId } = req.params;
   const client = await pool.connect();
   try {
+      // 1. Récupérer les données complètes de la facture
       const factureRes = await client.query('SELECT f.*, t.nom AS client_nom FROM factures f LEFT JOIN tiers t ON f.code_tiers = t.code WHERE f.id = $1', [factureId]);
       if (factureRes.rowCount === 0) return res.status(404).json({ error: "Facture non trouvée." });
-      
       const facture = factureRes.rows[0];
       const lignesRes = await client.query('SELECT * FROM lignes_facture WHERE facture_id = $1', [factureId]);
       facture.lignes = lignesRes.rows;
 
-      const htmlContent = await ejs.renderFile(path.join(__dirname, 'views', 'invoice-template.ejs'), { facture });
+      // 2. Utiliser le template de facture dédié 'invoice-template.ejs'
+      const htmlContent = await ejs.renderFile(
+          path.join(__dirname, 'views', 'invoice-template.ejs'),
+          { facture } // Il passe l'objet 'facture' complet
+      );
       
+      // 3. Logique Puppeteer pour générer le PDF
       const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
       await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-      
       const pdfFileName = `facture-${facture.numero_facture.replace(/[\/\\?%*:|"<>]/g, '-')}.pdf`;
       const pdfPath = path.join('uploads', pdfFileName);
-      
       await page.pdf({ path: pdfPath, format: 'A4' });
       await browser.close();
 
-      // Logique d'enregistrement dans la table 'documents'...
-      // ...
-      res.status(201).json({ message: `Facture ${facture.numero_facture} archivée.` });
-  } catch (err) { /* ... */ } 
-  finally { client.release(); }
+      // 4. Enregistrer dans la table 'documents'
+      const fileStats = fs.statSync(pdfPath);
+      await client.query(
+          `INSERT INTO documents (nom_document, type_document, nom_fichier_stocke, chemin_fichier, type_mime, taille_fichier, facture_id, envoi_id)
+           VALUES ($1, $2, $3, $4, 'application/pdf', $5, $6, $7)`,
+          [`Facture ${facture.numero_facture}`, facture.type_facture, pdfFileName, pdfPath, fileStats.size, facture.id, facture.envoi_id]
+      );
+
+      res.status(201).json({ message: `Facture ${facture.numero_facture} archivée avec succès.` });
+
+  } catch (err) {
+      console.error("Erreur d'archivage de la facture:", err);
+      res.status(500).json({ error: "Erreur serveur lors de l'archivage." });
+  } finally {
+      client.release();
+  }
 });
 // =================================================================================
 // ROUTES DE L'API

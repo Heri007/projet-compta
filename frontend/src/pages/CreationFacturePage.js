@@ -2,11 +2,31 @@ import React, { useState, useMemo, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import axios from 'axios';
-import InvoicePreview from '../components/InvoicePreview';
+import InvoicePreview from '../components/InvoicePreview'; // Uniquement pour l'aperçu à l'écran
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, envois = [], articles = [] }) => {    
+// --- COMPOSANT DÉDIÉ AU CHARGEMENT DU HTML POUR L'APERÇU ---
+const InvoiceHtmlRenderer = ({ factureData }) => {
+    const [html, setHtml] = useState('<p style="text-align: center; padding: 20px;">Génération de l\'aperçu...</p>');
+    useEffect(() => {
+        const renderHtml = async () => {
+            if (!factureData) return;
+            try {
+                // On appelle la route POST qui renvoie le HTML prêt
+                const response = await axios.post(`${API_URL}/api/factures/render-html`, factureData);
+                setHtml(response.data);
+            } catch (err) {
+                setHtml('<p style="text-align: center; padding: 20px; color: red;">Erreur de chargement.</p>');
+            }
+        };
+        renderHtml();
+    }, [factureData]);
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+};
+
+
+const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, envois = [], articles = [] }) => {
     const isConversionMode = Boolean(factureIdToConvert);
     const clients = useMemo(() => tiers.filter(t => t.type === 'Client'), [tiers]);
 
@@ -27,7 +47,6 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
     const [lignes, setLignes] = useState([{ id: Date.now(), description: '', quantite: 1, prix: 0, article_code: '' }]);
     const [numeroFacture, setNumeroFacture] = useState('');
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const [previewHtml, setPreviewHtml] = useState('');
 
     // --- LOGIQUE DE REMPLISSAGE (Chargement / Sélection d'envoi) ---
     useEffect(() => {
@@ -69,9 +88,8 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
 
     fetchFacture();
   }, [factureIdToConvert, isConversionMode, setPage]);
-    // ... useEffect pour remplir les champs depuis l'envoi ...
-	// --- Mise à jour automatique de la ligne selon l'envoi (nouvelle facture uniquement) ---
-  useEffect(() => {
+  
+    useEffect(() => {
     if (isConversionMode) return;
 
     if (envoiSelectionne) {
@@ -104,19 +122,18 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
     const totalFOB = useMemo(() => lignes.reduce((sum, l) => sum + (Number(l.quantite || 0) * Number(l.prix || 0)), 0), [lignes]);
 
     const handleLigneChange = (id, field, value) => {
-      setLignes(prevLignes => prevLignes.map(l => {
-          if (l.id === id) {
-              const updatedLigne = { ...l, [field]: value };
-              // Si la description (qui est le champ de sélection) change, on met à jour l'article_code
-              if (field === 'description') {
-                  const article = articles.find(a => a.designation === value);
-                  updatedLigne.article_code = article ? article.code : '';
-              }
-              return updatedLigne;
-          }
-          return l;
-      }));
-  };
+        setLignes(prevLignes => prevLignes.map(l => {
+            if (l.id === id) {
+                const updatedLigne = { ...l, [field]: value };
+                if (field === 'description') {
+                    const article = articles.find(a => a.designation === value);
+                    updatedLigne.article_code = article ? article.code : '';
+                }
+                return updatedLigne;
+            }
+            return l;
+        }));
+    };
     const ajouterLigne = () => setLignes([...lignes, { id: Date.now(), description: '', quantite: 1, prix: 0, article_code: '' }]);
     const supprimerLigne = id => setLignes(lignes.filter(l => l.id !== id));
 
@@ -231,29 +248,22 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
     compagnieMaritime, portEmbarquement, nomenclatureDouaniere, lignes, domiciliation,
     poidsBrut, tare, poidsNet, isConversionMode
   ]);
-    const handleOpenPrintPreview = async () => {
-        setPreviewHtml('<p>Génération de l\'aperçu...</p>');
-        setIsPreviewOpen(true);
-        try {
-            const response = await axios.post(`${API_URL}/api/factures/render-html`, previewData);
-            setPreviewHtml(response.data);
-        } catch (err) {
-            setPreviewHtml('<p style="color: red;">Erreur de génération.</p>');
-        }
-    };
 
     return (
         <div className="p-8">
             <PageHeader title={isConversionMode ? 'Convertir en Facture Définitive' : "Création d'une Facture Proforma"} />
 
             <div className="flex justify-end mb-4">
-                <button onClick={handleOpenPrintPreview} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                <button
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
                     🖨️ Imprimer / Aperçu
                 </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <form onSubmit={handleSubmit} className="bg-[#b0e5eb] p-6 rounded-xl shadow-md">
+                <form onSubmit={handleSubmit} className="bg-[#b0e5eb] p-6 rounded-xl shadow-md space-y-6">
                     {/* Section Informations Générales */}
           <div className="space-y-4">
             <h3 className="font-bold text-lg border-b pb-2">Informations Générales</h3>
@@ -425,12 +435,10 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
               </div>
             </div>
           </div>
-{/* --- SECTION LIGNES DE FACTURE (CORRIGÉE) --- */}
-<div className="space-y-4">
+                    <div className="space-y-4">
                         <h3 className="font-bold text-lg border-b pb-2">Lignes de la Facture</h3>
-                        {lignes.map((ligne, index) => (
+                        {lignes.map((ligne) => (
                             <div key={ligne.id} className="grid grid-cols-[1fr_80px_120px_40px] gap-2 items-center">
-                                {/* 1. Champ de saisie avec liste de suggestions */}
                                 <input 
                                     type="text" 
                                     list="articles-datalist"
@@ -440,18 +448,14 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
                                     required 
                                     className="border p-2 rounded" 
                                 />
-                                
-                                {/* 2. Le reste des champs (Quantité, Prix, Supprimer) */}
                                 <input type="number" value={ligne.quantite} onChange={e => handleLigneChange(ligne.id, 'quantite', e.target.value)} placeholder="Qté" className="border p-2 rounded text-right" />
                                 <input type="number" value={ligne.prix} onChange={e => handleLigneChange(ligne.id, 'prix', e.target.value)} placeholder="Prix" className="border p-2 rounded text-right" />
                                 <button type="button" onClick={() => supprimerLigne(ligne.id)} className="text-red-500 font-bold text-xl hover:text-red-700">×</button>
                             </div>
                         ))}
-                        {/* La datalist est définie une seule fois */}
                         <datalist id="articles-datalist">
                             {articles.map(a => <option key={a.code} value={a.designation} />)}
                         </datalist>
-
                         <button type="button" onClick={ajouterLigne} className="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">
                             ➕ Ajouter une ligne
                         </button>
@@ -460,12 +464,8 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
                         </div>
                     </div>
 
-                    {/* --- BOUTON VALIDER (MAINTENANT VISIBLE) --- */}
                     <div className="text-right pt-4 border-t">
-                        <button 
-                            type="submit" 
-                            className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition-transform transform hover:scale-105"
-                        >
+                        <button type="submit" className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700">
                             {isConversionMode ? 'Valider et Comptabiliser' : '💾 Enregistrer la Facture Proforma'}
                         </button>
                     </div>
@@ -481,10 +481,10 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
                 onClose={() => setIsPreviewOpen(false)}
                 title="Aperçu avant impression"
             >
-                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                {/* La modale affiche le HTML généré par le backend */}
+                <InvoiceHtmlRenderer factureData={previewData} />
             </PrintPreviewModal>
         </div>
     );
 };
-
 export default CreationFacturePage;

@@ -1,0 +1,62 @@
+/* Tableau global */
+table.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    border: 2px solid #000; /* Bordure extérieure épaisse */
+}
+
+/* Bordures internes pour toutes les cellules */
+table.report-table th,
+table.report-table td {
+    border: 1px solid #000; /* On passe en noir pour impression */
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+/* En-tête du tableau */
+table.report-table thead th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    border-bottom: 2px solid #000; /* Ligne épaisse */
+}
+
+/* Grandes masses */
+.grand-titre td {
+    background-color: #333;
+    color: #fff;
+    font-weight: bold;
+    border-top: 2px solid #000;
+}
+
+/* Totaux et sous-totaux */
+.total-row {
+    background-color: #e0e0e0;
+    font-weight: bold;
+    border-top: 2px solid #333;
+}
+.subtotal-row {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+/* Alignements et typo */
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-mono { font-family: 'Courier New', monospace; }
+strong { font-weight: bold; }
+em { font-style: italic; }
+
+/* Impression */
+@media print {
+    .no-print,
+    .screen-only {
+        display: none !important;
+    }
+
+    table.report-table th,
+    table.report-table td {
+        border: 2px solid #000; /* Noir pour impression */
+    }
+}

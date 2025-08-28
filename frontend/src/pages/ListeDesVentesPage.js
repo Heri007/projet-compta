@@ -1,28 +1,37 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import PrintPreviewModal from '../components/PrintPreviewModal';
-import InvoicePage from './InvoicePage'; // Pour l'aperçu à l'écran
+import InvoicePage from './InvoicePage';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const STATUTS = ['Tous', 'Proforma', 'Definitive'];
 
-// --- Fonctions utilitaires (gardées car utilisées dans le tableau principal) ---
-const getStatusClasses = (statut) => { /* ... */ };
-const formatCurrency = (value) => { /* ... */ };
-const formatDate = (dateString) => { /* ... */ };
+// --- Fonctions utilitaires ---
+const getStatusClasses = (statut) => {
+    switch (statut) {
+        case 'Proforma': return 'bg-yellow-200 text-yellow-800';
+        case 'Definitive': return 'bg-green-200 text-green-800';
+        default: return 'bg-gray-200 text-gray-600';
+    }
+};
+const formatCurrency = (value) => `$ ${parseFloat(value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}`;
+const formatDate = (dateString) => {
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Date invalide';
+        return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (error) { return ''; }
+};
 
-
-// --- NOUVEAU : Composant dédié au chargement du HTML pour l'aperçu ---
+// --- COMPOSANT DÉDIÉ AU CHARGEMENT DU HTML POUR L'APERÇU ---
 const InvoiceHtmlRenderer = ({ factureId }) => {
     const [html, setHtml] = useState('<p style="text-align: center; padding: 20px;">Chargement de l\'aperçu...</p>');
-
     useEffect(() => {
         if (!factureId) return;
         const fetchHtml = async () => {
             try {
-                // On appelle la nouvelle route du backend qui renvoie le HTML prêt
                 const response = await axios.get(`${API_URL}/api/factures/${factureId}/render`);
                 setHtml(response.data);
             } catch (err) {
@@ -32,8 +41,6 @@ const InvoiceHtmlRenderer = ({ factureId }) => {
         };
         fetchHtml();
     }, [factureId]);
-
-    // dangerouslySetInnerHTML est nécessaire pour injecter le HTML reçu du backend
     return <div dangerouslySetInnerHTML={{ __html: html }} />;
 };
 
@@ -42,7 +49,7 @@ const ListeDesVentesPage = ({ setPage, handleConvertToDefinitive, factures: fact
     const [filtreStatut, setFiltreStatut] = useState('Tous');
     const [selectedFacture, setSelectedFacture] = useState(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false); // Un seul état pour l'aperçu/impression
+    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); // État dédié pour la modale d'impression
     const [archivingId, setArchivingId] = useState(null);
 
     const facturesTransformees = useMemo(() => {
@@ -53,15 +60,10 @@ const ListeDesVentesPage = ({ setPage, handleConvertToDefinitive, factures: fact
             return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
         };
         return facturesBrutes.map(f => ({
-            id: f.id,
+            ...f,
             numeroFacture: f.numero_facture,
             clientNom: f.client_nom || 'Client non trouvé',
-            clientCode: f.code_tiers,
-            date: formatDate(f.date_facture),
-            montant: parseFloat(f.montant) || 0,
             statut: normalizeStatut(f.type_facture),
-            envoiId: f.envoi_id || null,
-            ...f
         }));
     }, [facturesBrutes]);
 
@@ -70,24 +72,24 @@ const ListeDesVentesPage = ({ setPage, handleConvertToDefinitive, factures: fact
         return facturesTransformees.filter(f => f.statut === filtreStatut && f.statut !== 'Convertie');
     }, [facturesTransformees, filtreStatut]);
 
-    // Ouvre la modale d'aperçu à l'écran (avec les styles Tailwind)
     const handleOpenView = (facture) => {
         setSelectedFacture(facture);
         setIsViewModalOpen(true);
     };
 
-    // Ouvre la modale d'impression (qui utilise le template du backend)
-    const handleOpenPrintPreview = (facture) => {
+    const handleOpenPrint = (facture) => {
         setSelectedFacture(facture);
-        setIsPreviewOpen(true);
+        setIsPrintModalOpen(true);
     };
 
     const handleArchive = async (facture) => {
         if (!facture || !facture.id) return;
         setArchivingId(facture.id);
         try {
-            // La route du backend s'occupe de tout : générer et sauvegarder
+            // CORRECTION : On appelle la route SPÉCIFIQUE à l'archivage de facture.
+            // On n'a pas besoin de générer le HTML, le backend s'en occupe.
             const response = await axios.post(`${API_URL}/api/factures/${facture.id}/archive`);
+            
             alert(response.data.message);
             if (refreshData) refreshData();
         } catch (err) {
@@ -101,18 +103,13 @@ const ListeDesVentesPage = ({ setPage, handleConvertToDefinitive, factures: fact
     return (
         <div className="p-8">
             <PageHeader title="Suivi des Factures de Vente" subtitle="Cliquez sur une ligne pour l'aperçu, ou utilisez les boutons d'action." />
-
             <div className="mb-6 flex justify-between items-center">
-                 <div className="flex gap-2 p-1 bg-gray-200 rounded-lg">
+                <div className="flex gap-2 p-1 bg-gray-200 rounded-lg">
                     {STATUTS.map(statut => (
-                        <button key={statut} onClick={() => setFiltreStatut(statut)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${filtreStatut === statut ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:bg-white/50'}`}>
-                            {statut}
-                        </button>
+                        <button key={statut} onClick={() => setFiltreStatut(statut)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${filtreStatut === statut ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:bg-white/50'}`}>{statut}</button>
                     ))}
                 </div>
-                <button onClick={() => setPage('creation_facture')} className="px-5 py-2 text-white font-semibold rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:scale-105 transform transition">
-                    ➕ Nouvelle Facture Proforma
-                </button>
+                <button onClick={() => setPage('creation_facture')} className="px-5 py-2 text-white font-semibold rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:scale-105 transform transition">➕ Nouvelle Facture Proforma</button>
             </div>
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -146,7 +143,7 @@ const ListeDesVentesPage = ({ setPage, handleConvertToDefinitive, factures: fact
                                                 {archivingId === facture.id ? '...' : '🗄️'}
                                             </button>
                                         )}
-                                        <button onClick={() => handleOpenPrintPreview(facture)} className="text-xl text-gray-500 hover:text-blue-600" title="Imprimer">🖨️</button>
+                                        <button onClick={() => handleOpenPrint(facture)} className="text-xl text-gray-500 hover:text-blue-600" title="Imprimer">🖨️</button>
                                     </div>
                                 </td>
                             </tr>
@@ -172,8 +169,8 @@ const ListeDesVentesPage = ({ setPage, handleConvertToDefinitive, factures: fact
             
             {/* Modale d'impression (utilise le HTML du backend) */}
             <PrintPreviewModal 
-                isOpen={isPreviewOpen} 
-                onClose={() => setIsPreviewOpen(false)}
+                isOpen={isPrintModalOpen} 
+                onClose={() => setIsPrintModalOpen(false)}
                 title={`Aperçu avant impression : ${selectedFacture?.numeroFacture}`}
             >
                 {selectedFacture && <InvoiceHtmlRenderer factureId={selectedFacture.id} />}
