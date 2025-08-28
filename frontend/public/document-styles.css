@@ -1,62 +1,26 @@
-/* Tableau global */
-table.report-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px 0;
-    border: 2px solid #000; /* Bordure extérieure épaisse */
-}
+/* Fichier : frontend/public/document-styles.css (Version Finale) */
+body { font-family: Arial, sans-serif; font-size: 10px; color: #333; background: white; }
+.report-container { max-width: 800px; margin: 40px auto; padding: 0 15px; }
+.report-header { text-align: center; margin-bottom: 25px; }
+.report-title { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+.report-subtitle { font-size: 11px; font-weight: bold; }
+.report-footer { margin-top: 40px; padding-top: 10px; border-top: 1px solid #ccc; text-align: center; font-size: 9px; }
 
-/* Bordures internes pour toutes les cellules */
-table.report-table th,
-table.report-table td {
-    border: 1px solid #000; /* On passe en noir pour impression */
-    padding: 6px 8px;
-    text-align: left;
-    vertical-align: top;
-}
+table { width: 100%; border-collapse: collapse; margin: 20px 0; border: 2px solid #000; }
+th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+thead th { background-color: #f0f0f0; font-weight: bold; border-bottom: 2px solid #000; }
+.grand-titre td { background-color: #333; color: white; font-weight: bold; border-top: 2px solid #000; }
+.total-row { background-color: #e0e0e0; font-weight: bold; border-top: 2px solid #000; }
+.subtotal-row { background-color: #f0f0f0; font-weight: bold; }
 
-/* En-tête du tableau */
-table.report-table thead th {
-    background-color: #f0f0f0;
-    font-weight: bold;
-    border-bottom: 2px solid #000; /* Ligne épaisse */
-}
-
-/* Grandes masses */
-.grand-titre td {
-    background-color: #333;
-    color: #fff;
-    font-weight: bold;
-    border-top: 2px solid #000;
-}
-
-/* Totaux et sous-totaux */
-.total-row {
-    background-color: #e0e0e0;
-    font-weight: bold;
-    border-top: 2px solid #333;
-}
-.subtotal-row {
-    background-color: #f0f0f0;
-    font-weight: bold;
-}
-
-/* Alignements et typo */
 .text-right { text-align: right; }
 .text-center { text-align: center; }
-.font-mono { font-family: 'Courier New', monospace; }
+.font-mono { font-family: 'Courier New', Courier, monospace; }
 strong { font-weight: bold; }
-em { font-style: italic; }
+em { font-style: italic; font-weight: bold; }
 
-/* Impression */
-@media print {
-    .no-print,
-    .screen-only {
-        display: none !important;
-    }
+/* Journal d'écriture */
+.journal-table th:nth-child(1) { width: 10%; } /* Date */
+.journal-table th:nth-child(5), .journal-table th:nth-child(6) { width: 15%; } /* Débit/Crédit */
 
-    table.report-table th,
-    table.report-table td {
-        border: 2px solid #000; /* Noir pour impression */
-    }
-}
+@media print { .no-print, .screen-only { display: none !important; } }

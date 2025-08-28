@@ -332,16 +332,15 @@ app.post('/api/reports/archive', async (req, res) => {
   }
 
   try {
-      // Chemin vers le fichier CSS principal de votre projet React
-      const cssPath = path.join(__dirname, '../frontend/src/index.css');
-      const cssContent = fs.readFileSync(cssPath, 'utf8');
+    // --- CORRECTION : Pointer vers le bon fichier CSS statique ---
+    const cssPath = path.join(__dirname, '../frontend/public/document-styles.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf8');
 
-      // On génère le HTML final en injectant le HTML reçu ET les styles
-      const finalHtml = await ejs.renderFile(path.join(__dirname, 'views', 'report-template.ejs'), {
-          title: reportTitle,
-          reportHtml: reportHtml,
-          styles: cssContent
-      });
+    const finalHtml = await ejs.renderFile(path.join(__dirname, 'views', 'report-template.ejs'), {
+        title: reportTitle,
+        reportHtml: reportHtml,
+        styles: cssContent // On injecte le contenu du CSS
+    });
 
       const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
