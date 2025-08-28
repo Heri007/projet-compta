@@ -5,7 +5,7 @@ import { genererDonneesBilanComplet } from '../utils/bilanHelper';
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import { formatNumber } from '../utils/formatUtils';
 import ReportToolbar from '../components/reporting/ReportToolbar';
-import { BilanPrint } from '../components/reporting/ReportPrintLayouts'; // Importer la version d'impression
+import { BilanPrint } from '../components/reporting/ReportPrintLayouts'
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 

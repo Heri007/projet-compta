@@ -1,144 +1,104 @@
-// Fichier : frontend/src/components/reporting/ReportPrintLayouts.js
 import React from 'react';
 import { formatNumber } from '../../utils/formatUtils';
 
-// --- COMPOSANT EN-TÊTE ---
+// --- COMPOSANT DE BASE POUR L'EN-TÊTE ---
 const ReportHeader = ({ title, dateCloture, unit = 'ARIARY' }) => (
-    <div className="report-header mb-4">
-        <h1 className="text-xl font-bold">{title}</h1>
-        <p>Au : <strong>{dateCloture?.toLocaleDateString('fr-FR')}</strong> - Unité : <strong>{unit}</strong></p>
+    <div className="report-header">
+        <h1 className="report-title">{title}</h1>
+        <p className="report-subtitle">
+            Au : <strong>{dateCloture.toLocaleDateString('fr-FR')}</strong> - Unité : <strong>{unit}</strong>
+        </p>
     </div>
 );
 
-// --- LIGNES ACTIF ---
-const BilanActifPrintRow = ({ libelle, montantBrut, amortissements, montantNet, isTotal, isSubTotal, indent = 0 }) => (
-    <tr className={isTotal ? "total-row font-bold" : isSubTotal ? "subtotal-row font-semibold" : ""}>
-        <td style={{ paddingLeft: `${indent * 20}px` }}>{libelle}</td>
+// --- SOUS-COMPOSANTS POUR LE BILAN PRINT ---
+const BilanActifPrintRow = ({ libelle, montantBrut, amortissements, montantNet, isTotal, isSubTotal, indent }) => (
+    <tr className={isTotal ? "total-row" : isSubTotal ? "subtotal-row" : ""}>
+        <td style={{ paddingLeft: indent ? '24px' : '8px' }}>{libelle}</td>
         <td className="text-right font-mono">{formatNumber(montantBrut)}</td>
         <td className="text-right font-mono">{formatNumber(amortissements)}</td>
         <td className="text-right font-mono">{formatNumber(montantNet)}</td>
     </tr>
 );
 
-// --- LIGNES PASSIF ---
-const BilanPassifPrintRow = ({ libelle, montantNet, isTotal, isSubTotal, indent = 0 }) => (
-    <tr className={isTotal ? "total-row font-bold" : isSubTotal ? "subtotal-row font-semibold" : ""}>
-        <td style={{ paddingLeft: `${indent * 20}px` }}>{libelle}</td>
+const BilanActifPrint = ({ data }) => (
+    <table className="report-table">
+        <thead>
+            <tr>
+                <th style={{width: '40%'}}>ACTIF</th>
+                <th className="text-right">Montant brut</th>
+                <th className="text-right">Amort. ou Prov.</th>
+                <th className="text-right">Montant net</th>
+            </tr>
+        </thead>
+        <tbody>
+            {Object.entries(data).map(([grandeMasse, grandeMasseData]) => {
+                if (grandeMasse === 'TOTAL') return null;
+                return (
+                    <React.Fragment key={grandeMasse}>
+                        <tr className="grand-titre"><td colSpan="4"><strong>{grandeMasse}</strong></td></tr>
+                        {Object.entries(grandeMasseData.sous_masses).map(([sousMasse, sousData]) => (
+                            <React.Fragment key={sousMasse}>
+                                <tr><td colSpan="4"><em>{sousMasse}</em></td></tr>
+                                {sousData.lignes.map(ligne => <BilanActifPrintRow key={ligne.libelle} {...ligne} indent={true} />)}
+                                <BilanActifPrintRow libelle={`Total ${sousMasse}`} {...sousData.total} isSubTotal={true} />
+                            </React.Fragment>
+                        ))}
+                    </React.Fragment>
+                );
+            })}
+            <BilanActifPrintRow libelle="TOTAL DE L'ACTIF" {...data.TOTAL} isTotal={true} />
+        </tbody>
+    </table>
+);
+
+const BilanPassifPrintRow = ({ libelle, montantNet, isTotal, isSubTotal, indent }) => (
+    <tr className={isTotal ? "total-row" : isSubTotal ? "subtotal-row" : ""}>
+        <td style={{ paddingLeft: indent ? '24px' : '8px' }}>{libelle}</td>
         <td className="text-right font-mono">{formatNumber(montantNet)}</td>
     </tr>
 );
 
-// --- BILAN GLOBAL ---
-export const BilanPrint = ({ data, dateCloture }) => (
-    <div className="report-container">
-        <ReportHeader title="Bilan" dateCloture={dateCloture} />
-
-        {/* --- ACTIF --- */}
-        <table className="report-table mb-6 w-full border-collapse">
-            <thead>
-                <tr>
-                    <th>ACTIF</th>
-                    <th className="text-right">Brut</th>
-                    <th className="text-right">Amortissements</th>
-                    <th className="text-right">Net</th>
-                </tr>
-            </thead>
-            <tbody>
-                {Object.entries(data.actif).map(([grandeMasse, grandeMasseData]) => {
-                    if (grandeMasse === 'TOTAL') return null;
-                    const totalGrandeMasse = grandeMasseData.total || { totalBrut: 0, totalAmort: 0, totalNet: 0 };
-
-                    return (
-                        <React.Fragment key={grandeMasse}>
-                            <tr className="bg-gray-800 text-white font-bold">
-                                <td colSpan="4">{grandeMasse}</td>
-                            </tr>
-                            {Object.entries(grandeMasseData.sous_masses).map(([sousMasse, sousData]) => {
-                                const totalSousMasse = sousData.total || { totalBrut: 0, totalAmort: 0, totalNet: 0 };
-                                return (
-                                    <React.Fragment key={sousMasse}>
-                                        <tr>
-                                            <td colSpan="4" className="font-semibold italic">{sousMasse}</td>
-                                        </tr>
-                                        {sousData.lignes.map(l => <BilanActifPrintRow key={l.libelle} {...l} indent={1} />)}
-                                        <BilanActifPrintRow 
-                                            libelle={`Total ${sousMasse}`} 
-                                            montantBrut={totalSousMasse.totalBrut} 
-                                            amortissements={totalSousMasse.totalAmort} 
-                                            montantNet={totalSousMasse.totalNet} 
-                                            isSubTotal 
-                                        />
-                                    </React.Fragment>
-                                );
-                            })}
-                            <BilanActifPrintRow 
-                                libelle={`TOTAL DE L'${grandeMasse}`} 
-                                montantBrut={totalGrandeMasse.totalBrut} 
-                                amortissements={totalGrandeMasse.totalAmort} 
-                                montantNet={totalGrandeMasse.totalNet} 
-                                isTotal 
-                            />
-                        </React.Fragment>
-                    );
-                })}
-                <BilanActifPrintRow 
-                    libelle="TOTAL DE L'ACTIF" 
-                    montantBrut={data.actif.TOTAL?.totalBrut || 0} 
-                    amortissements={data.actif.TOTAL?.totalAmort || 0} 
-                    montantNet={data.actif.TOTAL?.totalNet || 0} 
-                    isTotal 
-                />
-            </tbody>
-        </table>
-
-        {/* --- PASSIF --- */}
-        <table className="report-table w-full border-collapse">
-            <thead>
-                <tr>
-                    <th>PASSIF</th>
-                    <th className="text-right">Montant net</th>
-                </tr>
-            </thead>
-            <tbody>
-                {Object.entries(data.passif).map(([grandeMasse, grandeMasseData]) => {
-                    if (grandeMasse === 'TOTAL') return null;
-                    const totalGrandeMasse = grandeMasseData.total || { totalNet: 0 };
-
-                    return (
-                        <React.Fragment key={grandeMasse}>
-                            <tr className="bg-gray-800 text-white font-bold">
-                                <td colSpan="2">{grandeMasse}</td>
-                            </tr>
-                            {Object.entries(grandeMasseData.sous_masses).map(([sousMasse, sousData]) => {
-                                const totalSousMasse = sousData.total || { totalNet: 0 };
-                                return (
-                                    <React.Fragment key={sousMasse}>
-                                        {sousData.lignes.map(l => 
-                                            <BilanPassifPrintRow key={l.libelle} libelle={l.libelle} montantNet={l.montantNet || 0} indent={1} />
-                                        )}
-                                        <BilanPassifPrintRow 
-                                            libelle={`Total ${sousMasse}`} 
-                                            montantNet={totalSousMasse.totalNet} 
-                                            isSubTotal 
-                                        />
-                                    </React.Fragment>
-                                );
-                            })}
-                            <BilanPassifPrintRow 
-                                libelle={`TOTAL DE ${grandeMasse}`} 
-                                montantNet={totalGrandeMasse.totalNet} 
-                                isTotal 
-                            />
-                        </React.Fragment>
-                    );
-                })}
-                <BilanPassifPrintRow 
-                    libelle="TOTAL DU PASSIF" 
-                    montantNet={data.passif.TOTAL?.totalNet || 0} 
-                    isTotal 
-                />
-            </tbody>
-        </table>
-    </div>
+const BilanPassifPrint = ({ data }) => (
+    <table className="report-table">
+        <thead>
+            <tr>
+                <th style={{width: '70%'}}>PASSIF</th>
+                <th className="text-right">Montant net</th>
+            </tr>
+        </thead>
+        <tbody>
+            {Object.entries(data).map(([grandeMasse, grandeMasseData]) => {
+                if (grandeMasse === 'TOTAL') return null;
+                return (
+                    <React.Fragment key={grandeMasse}>
+                        <tr className="grand-titre"><td colSpan="2"><strong>{grandeMasse}</strong></td></tr>
+                        {Object.entries(grandeMasseData.sous_masses).map(([sousMasse, sousData]) => (
+                            <React.Fragment key={sousMasse}>
+                                {sousData.lignes.map(ligne => <BilanPassifPrintRow key={ligne.libelle} {...ligne} indent={true} />)}
+                                <BilanPassifPrintRow libelle={`Total ${sousMasse}`} montantNet={sousData.totalNet} isSubTotal={true} />
+                            </React.Fragment>
+                        ))}
+                    </React.Fragment>
+                );
+            })}
+            <BilanPassifPrintRow libelle="TOTAL DU PASSIF" montantNet={data.TOTAL.totalNet} isTotal={true} />
+        </tbody>
+    </table>
 );
 
+// --- COMPOSANT PRINCIPAL D'IMPRESSION POUR LE BILAN STANDARD ---
+export const BilanPrint = ({ data, dateCloture }) => {
+    if (!data || !data.actif || !data.passif) return <p>Données du bilan incomplètes.</p>;
+
+    return (
+        <div className="report-container">
+            {/* CORRECTION : Utilisation des sous-composants */}
+            <ReportHeader title="Bilan Standard" dateCloture={dateCloture} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                <BilanActifPrint data={data.actif} />
+                <BilanPassifPrint data={data.passif} />
+            </div>
+        </div>
+    );
+};
