@@ -222,7 +222,7 @@ export default function App() {
                     />;
       case 'import': return <PlaceholderPage title="Import / Export" />;
       case 'parametres': return <ParametresPage dateCloture={dateCloture} setDateCloture={setDateCloture} />;
-      case 'creation_facture': return <CreationFacturePage tiers={tiers} envois={envois} setPage={setPage} factureIdToConvert={subId} refreshData={fetchData} />;
+      case 'creation_facture': return <CreationFacturePage tiers={tiers} envois={envois} setPage={setPage} factureIdToConvert={subId} refreshData={fetchData} articles={articles} />;
       case 'liste_ventes': 
   return <ListeDesVentesPage 
             setPage={setPage} 

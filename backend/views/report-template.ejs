@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <style></style>
-        <title>Facture <%= facture.numero_facture %></title>
-        /* <%# injection du CSS backend %> */    
-    <%- styles %></style>
-    </head>
+<head>
+    <meta charset="UTF-8">
+    <title><%= title %></title>
+    <style>
+        /* <%# injection du CSS backend %> */
+        <%- styles %>
+    </style>
+</head>
 <body>
-    <!-- Le HTML du rapport généré par React sera injecté ici -->
+    <!-- Le HTML de votre composant React sera injecté ici -->
     <%- reportHtml %> 
 </body>
 </html>

@@ -6,30 +6,31 @@ import InvoicePreview from '../components/InvoicePreview';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, envois = [] }) => {
-  const isConversionMode = Boolean(factureIdToConvert);
-  const clients = useMemo(() => tiers.filter(t => t.type === 'Client'), [tiers]);
+const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, envois = [], articles = [] }) => {    
+    const isConversionMode = Boolean(factureIdToConvert);
+    const clients = useMemo(() => tiers.filter(t => t.type === 'Client'), [tiers]);
 
-  // États du formulaire
-  const [factureOriginale, setFactureOriginale] = useState(null);
-  const [clientCode, setClientCode] = useState('');
-  const [envoiSelectionne, setEnvoiSelectionne] = useState('');
-  const [dateFacture, setDateFacture] = useState(new Date().toISOString().split('T')[0]);
-  const [natureProduit, setNatureProduit] = useState('');
-  const [paysOrigine, setPaysOrigine] = useState('MADAGASCAR'); // Valeur par défaut
-  const [compagnieMaritime, setCompagnieMaritime] = useState('');
-  const [portEmbarquement, setPortEmbarquement] = useState('');
-  const [nomenclatureDouaniere, setNomenclatureDouaniere] = useState('');
-  const [domiciliation, setDomiciliation] = useState('');
-  const [poidsBrut, setPoidsBrut] = useState(''); // Initialiser avec une chaîne vide
-  const [tare, setTare] = useState(''); // Initialiser avec une chaîne vide
-  const [poidsNet, setPoidsNet] = useState(''); // Nouvel état pour le poids net manuel
-  const [lignes, setLignes] = useState([{ id: Date.now(), description: '', quantite: 1, prix: 0 }]);
-  const [numeroFacture, setNumeroFacture] = useState('');
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    // --- ÉTATS DU FORMULAIRE ---
+    const [factureOriginale, setFactureOriginale] = useState(null);
+    const [clientCode, setClientCode] = useState('');
+    const [envoiSelectionne, setEnvoiSelectionne] = useState('');
+    const [dateFacture, setDateFacture] = useState(new Date().toISOString().split('T')[0]);
+    const [natureProduit, setNatureProduit] = useState('Pierres industrielles');
+    const [paysOrigine, setPaysOrigine] = useState('MADAGASCAR');
+    const [compagnieMaritime, setCompagnieMaritime] = useState('');
+    const [portEmbarquement, setPortEmbarquement] = useState('MAHAJANGA');
+    const [nomenclatureDouaniere, setNomenclatureDouaniere] = useState('');
+    const [domiciliation, setDomiciliation] = useState('');
+    const [poidsBrut, setPoidsBrut] = useState('');
+    const [tare, setTare] = useState('');
+    const [poidsNet, setPoidsNet] = useState('');
+    const [lignes, setLignes] = useState([{ id: Date.now(), description: '', quantite: 1, prix: 0, article_code: '' }]);
+    const [numeroFacture, setNumeroFacture] = useState('');
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewHtml, setPreviewHtml] = useState('');
 
-  // --- Charger facture à convertir ---
-  useEffect(() => {
+    // --- LOGIQUE DE REMPLISSAGE (Chargement / Sélection d'envoi) ---
+    useEffect(() => {
     if (!isConversionMode) return;
 
     const fetchFacture = async () => {
@@ -68,8 +69,8 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
 
     fetchFacture();
   }, [factureIdToConvert, isConversionMode, setPage]);
-
-  // --- Mise à jour automatique de la ligne selon l'envoi (nouvelle facture uniquement) ---
+    // ... useEffect pour remplir les champs depuis l'envoi ...
+	// --- Mise à jour automatique de la ligne selon l'envoi (nouvelle facture uniquement) ---
   useEffect(() => {
     if (isConversionMode) return;
 
@@ -97,45 +98,30 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
     }
   }, [envoiSelectionne, isConversionMode, envois, natureProduit, paysOrigine, compagnieMaritime, portEmbarquement, nomenclatureDouaniere, poidsBrut, tare]);
 
-  // --- Calculs ---
-  const client = useMemo(() => clients.find(c => c.code === clientCode), [clients, clientCode]);  
-  const totalFOB = useMemo(
-    () => {
-      console.log('Calcul totalFOB - lignes actuelles:', lignes);
-      const total = lignes.reduce((sum, l) => sum + ((Number(l.quantite) || 0) * (Number(l.prix) || 0)), 0);
-      console.log('Total calculé:', total);
-      return total;
-    },
-    [lignes]
-  );
 
-  // --- Gestion des lignes ---
-  const handleLigneChange = (id, field, value) => {
-    console.log(`handleLigneChange - id: ${id}, field: ${field}, value: ${value}`);
-    const newLignes = lignes.map(l => (l.id === id ? { ...l, [field]: value } : l));
-    console.log('Nouvelles lignes après modification:', newLignes);
-    setLignes(newLignes);
+    // --- CALCULS & GESTION DES LIGNES ---
+    const client = useMemo(() => clients.find(c => c.code === clientCode), [clients, clientCode]);
+    const totalFOB = useMemo(() => lignes.reduce((sum, l) => sum + (Number(l.quantite || 0) * Number(l.prix || 0)), 0), [lignes]);
+
+    const handleLigneChange = (id, field, value) => {
+      setLignes(prevLignes => prevLignes.map(l => {
+          if (l.id === id) {
+              const updatedLigne = { ...l, [field]: value };
+              // Si la description (qui est le champ de sélection) change, on met à jour l'article_code
+              if (field === 'description') {
+                  const article = articles.find(a => a.designation === value);
+                  updatedLigne.article_code = article ? article.code : '';
+              }
+              return updatedLigne;
+          }
+          return l;
+      }));
   };
+    const ajouterLigne = () => setLignes([...lignes, { id: Date.now(), description: '', quantite: 1, prix: 0, article_code: '' }]);
+    const supprimerLigne = id => setLignes(lignes.filter(l => l.id !== id));
 
-  const ajouterLigne = () => {
-    const newLignes = [...lignes, { id: Date.now(), description: '', quantite: 1, prix: 0 }];
-    console.log('Ajout d\'une ligne, nouvelles lignes:', newLignes);
-    setLignes(newLignes);
-  };
-
-  const supprimerLigne = id => {
-    const newLignes = lignes.filter(l => l.id !== id);
-    console.log('Suppression ligne, nouvelles lignes:', newLignes);
-    setLignes(newLignes);
-  };
-
-  // Surveillez les changements de l'état lignes
-  useEffect(() => {
-    console.log('État lignes mis à jour:', lignes);
-  }, [lignes]);
-
-  // --- Soumission ---
-  const handleSubmit = async (e) => {
+    // --- SOUMISSION & APERÇU ---
+    const handleSubmit = async (e) => {
     e.preventDefault();
     if (!client) return alert("Veuillez sélectionner un client.");
 
@@ -200,8 +186,7 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
     }
   };
 
-  // --- Préparation du previewData pour InvoicePreview ---
-  const previewData = useMemo(() => {
+    const previewData = useMemo(() => {
     console.log('=== CREATION PREVIEW DATA ===');
     console.log('lignes dans previewData (état actuel):', lignes);
     console.log('lignes.length:', lignes?.length);
@@ -246,23 +231,30 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
     compagnieMaritime, portEmbarquement, nomenclatureDouaniere, lignes, domiciliation,
     poidsBrut, tare, poidsNet, isConversionMode
   ]);
+    const handleOpenPrintPreview = async () => {
+        setPreviewHtml('<p>Génération de l\'aperçu...</p>');
+        setIsPreviewOpen(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/factures/render-html`, previewData);
+            setPreviewHtml(response.data);
+        } catch (err) {
+            setPreviewHtml('<p style="color: red;">Erreur de génération.</p>');
+        }
+    };
 
-  return (
-    <div className="p-8">
-      <PageHeader title={isConversionMode ? 'Convertir en Facture Définitive' : "Création d'une Facture Proforma"} />
+    return (
+        <div className="p-8">
+            <PageHeader title={isConversionMode ? 'Convertir en Facture Définitive' : "Création d'une Facture Proforma"} />
 
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => setIsPreviewOpen(true)}
-          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-        >
-          🖨️ Imprimer / Aperçu
-        </button>
-      </div>
+            <div className="flex justify-end mb-4">
+                <button onClick={handleOpenPrintPreview} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                    🖨️ Imprimer / Aperçu
+                </button>
+            </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <form onSubmit={handleSubmit} className="bg-[#b0e5eb] p-6 rounded-xl shadow-md">
-          {/* Section Informations Générales */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <form onSubmit={handleSubmit} className="bg-[#b0e5eb] p-6 rounded-xl shadow-md">
+                    {/* Section Informations Générales */}
           <div className="space-y-4">
             <h3 className="font-bold text-lg border-b pb-2">Informations Générales</h3>
 
@@ -433,79 +425,66 @@ const CreationFacturePage = ({ tiers, setPage, factureIdToConvert, refreshData, 
               </div>
             </div>
           </div>
+{/* --- SECTION LIGNES DE FACTURE (CORRIGÉE) --- */}
+<div className="space-y-4">
+                        <h3 className="font-bold text-lg border-b pb-2">Lignes de la Facture</h3>
+                        {lignes.map((ligne, index) => (
+                            <div key={ligne.id} className="grid grid-cols-[1fr_80px_120px_40px] gap-2 items-center">
+                                {/* 1. Champ de saisie avec liste de suggestions */}
+                                <input 
+                                    type="text" 
+                                    list="articles-datalist"
+                                    value={ligne.description}
+                                    onChange={e => handleLigneChange(ligne.id, 'description', e.target.value)} 
+                                    placeholder="Désignation de l'article" 
+                                    required 
+                                    className="border p-2 rounded" 
+                                />
+                                
+                                {/* 2. Le reste des champs (Quantité, Prix, Supprimer) */}
+                                <input type="number" value={ligne.quantite} onChange={e => handleLigneChange(ligne.id, 'quantite', e.target.value)} placeholder="Qté" className="border p-2 rounded text-right" />
+                                <input type="number" value={ligne.prix} onChange={e => handleLigneChange(ligne.id, 'prix', e.target.value)} placeholder="Prix" className="border p-2 rounded text-right" />
+                                <button type="button" onClick={() => supprimerLigne(ligne.id)} className="text-red-500 font-bold text-xl hover:text-red-700">×</button>
+                            </div>
+                        ))}
+                        {/* La datalist est définie une seule fois */}
+                        <datalist id="articles-datalist">
+                            {articles.map(a => <option key={a.code} value={a.designation} />)}
+                        </datalist>
 
-          {/* Section Lignes de Facture */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-lg border-b pb-2">Lignes de la Facture</h3>
-            {lignes.map(ligne => (
-              <div key={ligne.id} className="grid grid-cols-[1fr_80px_120px_40px] gap-2 items-center">
-                <input 
-                  type="text" 
-                  value={ligne.description} 
-                  onChange={e => handleLigneChange(ligne.id, 'description', e.target.value)} 
-                  placeholder="Désignation" 
-                  required 
-                  className="border p-2 rounded" 
-                />
-                <input 
-                  type="number" 
-                  step="any" 
-                  min="0" 
-                  value={ligne.quantite} 
-                  onChange={e => handleLigneChange(ligne.id, 'quantite', parseFloat(e.target.value) || 0)} 
-                  placeholder="Qté" 
-                  className="border p-2 rounded text-right" 
-                />
-                <input 
-                  type="number" 
-                  step="any" 
-                  min="0" 
-                  value={ligne.prix} 
-                  onChange={e => handleLigneChange(ligne.id, 'prix', parseFloat(e.target.value) || 0)} 
-                  placeholder="Prix" 
-                  className="border p-2 rounded text-right" 
-                />
-                <button 
-                  type="button" 
-                  onClick={() => supprimerLigne(ligne.id)} 
-                  className="text-red-500 font-bold text-xl"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button 
-              type="button" 
-              onClick={ajouterLigne} 
-              className="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300"
-            >
-              ➕ Ajouter une ligne
-            </button>
-            <div className="text-right font-bold text-xl mt-2">
-              Total FOB: {totalFOB.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USD
+                        <button type="button" onClick={ajouterLigne} className="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">
+                            ➕ Ajouter une ligne
+                        </button>
+                        <div className="text-right font-bold text-xl mt-2">
+                            Total FOB: {totalFOB.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USD
+                        </div>
+                    </div>
+
+                    {/* --- BOUTON VALIDER (MAINTENANT VISIBLE) --- */}
+                    <div className="text-right pt-4 border-t">
+                        <button 
+                            type="submit" 
+                            className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition-transform transform hover:scale-105"
+                        >
+                            {isConversionMode ? 'Valider et Comptabiliser' : '💾 Enregistrer la Facture Proforma'}
+                        </button>
+                    </div>
+                </form>
+              
+                <div className="lg:sticky lg:top-8">
+                    <InvoicePreview facture={previewData} />
+                </div>
             </div>
-          </div>
 
-          <div className="text-right pt-4 border-t">
-            <button 
-              type="submit" 
-              className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition-transform transform hover:scale-105"
+            <PrintPreviewModal 
+                isOpen={isPreviewOpen} 
+                onClose={() => setIsPreviewOpen(false)}
+                title="Aperçu avant impression"
             >
-              {isConversionMode ? 'Valider et Comptabiliser' : '💾 Enregistrer la Facture Proforma'}
-            </button>
-          </div>
-        </form>
-
-        <div className="lg:sticky lg:top-8">
-          <InvoicePreview facture={previewData} />
+                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            </PrintPreviewModal>
         </div>
-      </div>
-
-      {isPreviewOpen && (
-        <PrintPreviewModal data={<InvoicePreview facture={previewData} />} onClose={() => setIsPreviewOpen(false)} />
-      )}
-    </div>
-  );
+    );
 };
 
 export default CreationFacturePage;

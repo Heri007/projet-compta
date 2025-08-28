@@ -1,78 +1,220 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    style></style>
-        <title>Facture <%= facture.numero_facture %></title>
-        /* <%# injection du CSS backend %> */    
-    <%- styles %></style>
+  <meta charset="UTF-8">
+  <title>Facture <%= facture.numero_facture %></title>
+  <style>
+    :root {
+      --logo-offset: 0.5em; /* Décalage vertical du logo */
+    }
+
+    body {
+      font-family: "Times New Roman", serif;
+      margin: 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .company-info-unified {
+      font-size: 11px;
+      line-height: 1.2;
+      color: #010e5e;
+      text-align: center;
+      margin: 0;
+      padding: 2px 0 0 0;
+    }
+
+    .company-header {
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .company-logo {
+      height: 60px;
+      width: auto;
+      vertical-align: baseline;
+      position: relative;
+      top: var(--logo-offset);
+    }
+
+    .company-name {
+      font-size: 35px;
+      font-weight: bold;
+      color: #010e5e;
+      display: inline-block;
+      vertical-align: baseline;
+      margin-left: 10px;
+    }
+
+    .content {
+      margin: 40px;
+    }
+
+    .facture-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 0 0 10px 0;
+      text-align: center;
+      text-decoration: underline;
+    }
+
+    .details { font-size: 14px; margin-bottom: 15px; }
+    .details p { margin: 3px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    table th, table td {
+      border: 1px solid #000;
+      padding: 6px;
+      text-align: center;
+    }
+
+    table th {
+      background: #eaeaea;
+    }
+
+    /* Ajustement des colonnes */
+    th.denomination, td.denomination { width: 40%; text-align: left; padding-left: 6px; }
+    th.quantite, td.quantite { width: 10%; }
+    th.prix, td.prix { width: 20%; }
+    th.total, td.total { width: 17.5%; }
+
+    .bank { font-size: 13px; margin-top: 20px; line-height: 1.3; }
+    .bank p { margin: 0; padding: 0; }
+    .weights { font-size: 13px; line-height: 1.3; margin-top: 10px; }
+    .weights p { margin: 0; padding: 0; line-height: 1.3; text-align: left; }
+
+    .footer.print-only {
+      display: block;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 40px;
+      background-color: #8c9cff;
+      color: #000;
+      border-top: none;
+      text-align: center;
+    }
+
+    @media print {
+      body { margin: 0; }
+
+      .header.print-only {
+        display: block;
+        position: fixed;
+        top: 5px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        padding: 10px 40px 2px 40px;
+        background: #fff;
+        border-bottom: 1px solid #010e5e;
+      }
+
+      .content { margin: 140px 40px 160px 40px; }
+
+      .weights.print-only {
+        display: block;
+        position: fixed;
+        bottom: 70px;
+        left: 40px;
+        right: 40px;
+        background: #fff;
+        padding-bottom: 10px;
+      }
+
+      .weights.print-only p { margin: 0; padding: 0; line-height: 1.3; text-align: left; }
+
+      .footer.print-only {
+        display: block;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 10px 40px;
+        background-color: #8c9cff;
+        color: #000;
+        border-top: none;
+        text-align: center;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <!-- Vous pouvez ajouter une image de logo si elle est accessible publiquement -->
-            <!-- <img src="http://localhost:3000/logo.png" alt="Logo" style="height: 60px; margin-bottom: 10px;"> -->
-            <p><strong>VINA EXPORT SARLU</strong></p>
-            <p style="font-size: 9px;">SARLU au capital de 2.000.000 ariary - NIF : 4019364331 - STAT : 46625412025000948</p>
-        </div>
-
-        <h1>FACTURE</h1>
-
-        <div class="info-grid">
-            <div>
-                <p><strong>DATE :</strong> <%= new Date(facture.date_facture).toLocaleDateString('fr-FR') %></p>
-                <p><strong>FACTURE No. :</strong> <%= facture.numero_facture %></p>
-                <p><strong>CLIENT :</strong> <%= facture.client_nom %></p>
-                <p><strong>NATURE DU PRODUIT :</strong> <%= facture.nature_produit || '' %></p>
-            </div>
-            <div>
-                <p><strong>PAYS D'ORIGINE :</strong> <%= facture.pays_origine || '' %></p>
-                <p><strong>COMPAGNIE MARITIME :</strong> <%= facture.compagnie_maritime || '' %></p>
-                <p><strong>PORT D'EMBARQUEMENT :</strong> <%= facture.port_embarquement || '' %></p>
-                <p><strong>NOMENCLATURE DOUANIÈRE :</strong> <%= facture.nomenclature_douaniere || '' %></p>
-            </div>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>DÉSIGNATION</th>
-                    <th class="text-right">QUANTITÉ</th>
-                    <th class="text-right">PRIX UNIT USD</th>
-                    <th class="text-right">TOTAL F.O.B USD</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% facture.lignes.forEach(ligne => { %>
-                    <tr>
-                        <td><%= ligne.description %></td>
-                        <td class="text-right font-mono"><%= parseFloat(ligne.quantite).toLocaleString('fr-FR') %></td>
-                        <td class="text-right font-mono"><%= parseFloat(ligne.prix).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
-                        <td class="text-right font-mono"><%= (parseFloat(ligne.quantite) * parseFloat(ligne.prix)).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></td>
-                    </tr>
-                <% }); %>
-                <tr class="total-row">
-                    <td colspan="3" class="text-right"><strong>TOTAL</strong></td>
-                    <td class="text-right font-mono"><strong><%= parseFloat(facture.montant).toLocaleString('fr-FR', {minimumFractionDigits: 2}) %></strong></td>
-                </tr>
-            </tbody>
-        </table>
-        
-        <!-- Ajout des infos bancaires et poids -->
-        <div>
-            <p><strong>Coordonnées Bancaires:</strong> Bank of Africa (B.O.A)</p>
-            <p style="padding-left: 15px;"><strong>Compte :</strong> 00009 03000 25040520003 55</p>
-            <p style="padding-left: 15px;"><strong>IBAN :</strong> MG46 0000 9030 0025 0405 2000 355</p>
-            <p style="padding-left: 15px;"><strong>SWIFT :</strong> AFRIMGMGXXX</p>
-            <br>
-            <p><strong>DOMICILIATION N° & DATE:</strong> <%= facture.domiciliation || '' %></p>
-            <br>
-            <p><strong>Poids Brut:</strong> <%= facture.poids_brut || '' %> &nbsp;&nbsp;&nbsp; <strong>Tare:</strong> <%= facture.tare || '' %> &nbsp;&nbsp;&nbsp; <strong>Poids Net:</strong> <%= facture.poids_net || '' %></p>
-        </div>
-
-        <div class="footer">
-            <p>Siège social : Lot Secteur 01 Centre A - AMBOROVY - MAHAJANGA 401 - MADAGASCAR</p>
-        </div>
+  <div class="header print-only">
+    <img src="/logo.png" alt="Logo" class="company-logo">
+    <span class="company-name">VINA EXPORT SARLU</span>
+    <div class="company-info-unified">
+      SARLU au capital de 2.000.000 ariary - NIF : 4019364331 - STAT : 46625412025000948 - RCS MAHAJANGA : 2025B00036
     </div>
+  </div>
+
+  <div class="content">
+    <div class="facture-title">FACTURE</div>
+    <div style="line-height: 1.3;"><br><br><br><br></div>
+
+    <div class="details">
+      <p><strong>Date :</strong> <%= new Date(facture.date_facture).toLocaleDateString('fr-FR') %></p>
+      <p><strong>Facture No. :</strong> <%= facture.numero_facture %></p>
+      <p><strong>Client :</strong> <%= facture.client_nom %> (<%= facture.client_code %>)</p>
+      <p><strong>Nature du produit :</strong> <%= facture.nature_produit %></p>
+      <p><strong>Pays d’origine :</strong> <%= facture.pays_origine %></p>
+      <p><strong>Compagnie maritime :</strong> <%= facture.compagnie_maritime %></p>
+      <p><strong>Port d’embarquement :</strong> <%= facture.port_embarquement %></p>
+      <p><strong>Nomenclature douanière :</strong> <%= facture.nomenclature_douaniere %></p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="denomination">Désignation</th>
+          <th class="quantite">Quantité</th>
+          <th class="prix">Prix Unit (USD – F.O.B)</th>
+          <th class="total">Total F.O.B (USD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% facture.lignes.forEach(ligne => { %>
+          <tr>
+            <td class="denomination"><%= ligne.description %></td>
+            <td class="quantite"><%= ligne.quantite %></td>
+            <td class="prix"><%= Number(ligne.prix).toFixed(2) %></td>
+            <td class="total"><%= (ligne.quantite * ligne.prix).toFixed(2) %></td>
+          </tr>
+        <% }) %>
+        <tr>
+          <td colspan="3" style="text-align: right; font-weight: bold;">TOTAL F.O.B</td>
+          <td><%= facture.lignes.reduce((sum, l) => sum + (l.quantite * l.prix), 0).toFixed(2) %></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="bank">
+      <p><strong>Nos coordonnées bancaires :</strong> Bank of Africa (B.O.A): 00009 03000 25040520003 55</p>
+      <p><strong>IBAN :</strong> MG46 0000 9030 0025 0405 2000 355</p>
+      <p><strong>SWIFT CODE :</strong> AFRIMGMGXXX</p>
+      <div style="line-height: 1.3;"><br></div>
+      <p><strong>Domiciliation No. & Date :</strong> <%= facture.domiciliation %></p>
+    </div>
+  </div>
+
+  <div class="weights print-only">
+    <p><strong>Poids Brut :</strong> <%= facture.poids_brut %> kg</p>
+    <p><strong>Tare :</strong> <%= facture.tare %> kg</p>
+    <p><strong>Poids Net :</strong> <%= facture.poids_net %> kg</p>
+  </div>
+
+  <div class="footer print-only company-info-unified">
+    Siège social : Lot Secteur 01 Centre A - AMBOROVY - MAHAJANGA 401 - MADAGASCAR<br>
+    +261 37 58 370 49 | heri.razafii@gmail.com
+  </div>
 </body>
 </html>
