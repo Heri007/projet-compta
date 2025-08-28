@@ -61,10 +61,22 @@ async function setupDatabase() {
       CREATE TABLE IF NOT EXISTS articles ( code TEXT PRIMARY KEY, designation TEXT NOT NULL UNIQUE, unite TEXT, compte_stock TEXT REFERENCES plan_comptable(numero_compte), quantite NUMERIC(15,4) DEFAULT 0 );
       
       CREATE TABLE IF NOT EXISTS envois (
-        id TEXT PRIMARY KEY, nom TEXT NOT NULL, client_code TEXT REFERENCES tiers(code),
-        article_code TEXT REFERENCES articles(code), quantite INTEGER, statut TEXT DEFAULT 'actif',
-        total_produits NUMERIC(15,2) DEFAULT 0, total_charges NUMERIC(15,2) DEFAULT 0
+        id TEXT PRIMARY KEY,
+        nom TEXT NOT NULL,
+        client_code TEXT REFERENCES tiers(code),
+        article_code TEXT REFERENCES articles(code),
+        quantite INTEGER,
+        statut TEXT DEFAULT 'Proforma',         -- Statut de la VENTE
+        total_produits NUMERIC(15,2) DEFAULT 0,
+        total_charges NUMERIC(15,2) DEFAULT 0,
+    
+        -- --- NOUVEAUX CHAMPS POUR L'ACHAT ---
+        cout_achat_total NUMERIC(15,2),        -- Coût total de l'achat (net de ristournes)
+        fournisseur_lp1 TEXT,                   -- Nom du fournisseur sur le LP1
+        date_achat DATE,                        -- Date de l'opération d'achat
+        statut_achat TEXT DEFAULT 'A saisir'    -- 'A saisir', 'Comptabilisé'
       );
+
       
       CREATE TABLE IF NOT EXISTS factures (
         id SERIAL PRIMARY KEY, numero_facture TEXT, date_facture DATE NOT NULL, libelle TEXT,
@@ -129,6 +141,17 @@ async function setupDatabase() {
         envoi_id TEXT REFERENCES envois(id) ON DELETE SET NULL,      -- Lien optionnel vers un envoi
         facture_id INTEGER REFERENCES factures(id) ON DELETE SET NULL, -- Lien optionnel vers une facture
         tiers_id TEXT REFERENCES tiers(code) ON DELETE SET NULL      -- Lien optionnel vers un tiers
+      );
+
+      -- CORRECTION : Changer le nom de la colonne ici
+      CREATE TABLE IF NOT EXISTS numerotation_pieces (
+        prefixe TEXT PRIMARY KEY,
+        compteur INTEGER NOT NULL DEFAULT 0 -- On utilise 'compteur'
+      );
+            
+      CREATE TABLE IF NOT EXISTS numerotations_client (
+        prefix TEXT PRIMARY KEY,
+        dernier_numero INTEGER NOT NULL DEFAULT 0  
       );
     `);
     console.log('✅ Les tables sont prêtes.');
@@ -422,6 +445,78 @@ app.post('/api/factures/:id/archive', async (req, res) => {
 
 // --- Racine ---
 app.get('/', (req, res) => res.send('API de comptabilité fonctionnelle !'));
+
+// POST /api/envois/:id/enregistrer-achat
+app.post('/api/envois/:id/enregistrer-achat', async (req, res) => {
+  const { id: envoiId } = req.params;
+  const { cout_achat_total, fournisseur_lp1, date_achat, quantite_achetee } = req.body;
+  const client = await pool.connect();
+
+  try {
+      // Pour le débogage, il est bon de savoir si la route est bien atteinte
+      console.log(`[INFO] Début de l'enregistrement de l'achat pour l'envoi ID: ${envoiId}`);
+
+      await client.query('BEGIN'); // TRANSACTION START
+
+      // 1. Mettre à jour l'envoi avec les informations de l'achat
+      const envoiRes = await client.query(
+          `UPDATE envois SET 
+              cout_achat_total = $1, 
+              fournisseur_lp1 = $2, 
+              date_achat = $3,
+              statut_achat = 'Comptabilisé' 
+           WHERE id = $4 RETURNING *`,
+          [cout_achat_total, fournisseur_lp1, date_achat, envoiId]
+      );
+
+      // --- CORRECTION CRUCIALE ---
+      // On vérifie si la requête a bien trouvé et retourné l'envoi mis à jour.
+      if (envoiRes.rowCount === 0) {
+        // Si aucune ligne n'a été mise à jour, l'envoi n'existe pas.
+        // On lève une erreur pour être redirigé vers le bloc catch.
+        throw new Error(`L'envoi avec l'ID '${envoiId}' n'a pas été trouvé.`);
+      }
+      const envoi = envoiRes.rows[0];
+      // --- FIN DE LA CORRECTION ---
+
+
+      // 2. Créer le mouvement d'ENTRÉE en stock
+      await client.query(
+          `INSERT INTO mouvements_stock (date, type, article_code, quantite, document_ref)
+           VALUES ($1, 'Entrée', $2, $3, $4)`,
+          [date_achat, envoi.article_code, quantite_achetee, `LP1-${envoiId}`]
+      );
+
+      // 3. Créer l'écriture comptable de l'achat
+      const numeroPieceAchat = await generateNumeroPiece('AC', date_achat);
+      const libelleAchat = `Achat marchandises pour envoi ${envoi.nom}`;
+      
+      // Débit du compte d'achat (607)
+      await client.query(
+          `INSERT INTO ecritures (journal_code, date, numero_piece, libelle_operation, compte_general, debit, envoi_id)
+           VALUES ('AC', $1, $2, $3, '607', $4, $5)`,
+          [date_achat, numeroPieceAchat, libelleAchat, cout_achat_total, envoiId]
+      );
+      // Crédit du compte fournisseur (401)
+      await client.query(
+          `INSERT INTO ecritures (journal_code, date, numero_piece, libelle_operation, compte_general, credit, envoi_id)
+           VALUES ('AC', $1, $2, $3, '401', $4, $5)`,
+          [date_achat, numeroPieceAchat, libelleAchat, cout_achat_total, envoiId]
+      );
+
+      await client.query('COMMIT'); // TRANSACTION END
+      console.log(`[SUCCESS] Achat pour l'envoi ID: ${envoiId} enregistré.`);
+      res.status(200).json(envoi);
+
+  } catch (err) {
+      await client.query('ROLLBACK');
+      // Ce log devrait maintenant s'afficher clairement avec le message d'erreur personnalisé
+      console.error(`[ERROR] Erreur lors de l'enregistrement de l'achat pour l'envoi ID: ${envoiId}`, err);
+      res.status(500).json({ error: "Erreur serveur.", details: err.message });
+  } finally {
+      client.release();
+  }
+});
 
 // POST /api/amortissements/generer
 // On envoie une date de fin, ex: { date_fin: "2025-12-31" }
@@ -959,15 +1054,24 @@ app.put('/api/factures/convertir/:id', async (req, res) => {
     const tauxUSD = parseFloat(tauxRes.rows[0].valeur);
 
     // Étape 3 : Charger la proforma originale pour les données non modifiables (client, envoi)
+    // --- CORRECTION CI-DESSOUS ---
+    // On modifie la requête pour joindre la table 'envois' et récupérer 'article_code'
     const proformaRes = await client.query(
-      'SELECT * FROM factures WHERE id = $1 AND type_facture = $2',
+      `SELECT 
+         f.*, 
+         e.article_code 
+       FROM factures f
+       LEFT JOIN envois e ON f.envoi_id = e.id
+       WHERE f.id = $1 AND f.type_facture = $2`,
       [proformaId, 'Proforma']
     );
-    if (proformaRes.rowCount === 0) {
-      throw new Error("Facture Proforma non trouvée ou déjà convertie.");
-    }
+    // --- FIN DE LA CORRECTION ---
     const factureProforma = proformaRes.rows[0];
 
+    // On vérifie que l'article_code a bien été trouvé
+    if (!factureProforma.article_code) {
+      throw new Error(`Impossible de trouver l'article associé à l'envoi '${factureProforma.envoi_id}'. Conversion annulée.`);
+    }
     // Étape 4 : Générer le nouveau numéro de facture définitive
     const numeroFactureDefinitif = await generateNumeroFacture('Definitive');
 
@@ -1012,37 +1116,36 @@ app.put('/api/factures/convertir/:id', async (req, res) => {
         );
       }
     }
-    
-    // Étape 7 : Créer les écritures comptables en Ariary
-    const montantEnAriary = parseFloat(montant) * tauxUSD;
-    const clientNom = factureProforma.client_nom || factureProforma.code_tiers;
-    // Libellé simplifié SANS le numéro de facture
-    const libelleEcriture = `Vente client ${clientNom}`;
+    // Maintenant, factureProforma.article_code contient la bonne valeur
+    const quantiteTotaleVendue = lignes.reduce((sum, l) => sum + (parseFloat(l.quantite) || 0), 0);
+    await client.query(
+        `INSERT INTO mouvements_stock (date, type, article_code, quantite, document_ref)
+         VALUES ($1, 'Sortie', $2, $3, $4)`,
+        [date_facture, factureProforma.article_code, quantiteTotaleVendue, numeroFactureDefinitif]
+    );
 
-    // Écriture au débit du client
+    const montantEnAriary = parseFloat(montant) * tauxUSD;
+    const libelleEcriture = `Vente client ${factureProforma.code_tiers}`;
+
     await client.query(
       `INSERT INTO ecritures (journal_code, date, numero_piece, libelle_operation, compte_general, code_tiers, envoi_id, facture_id, debit)
        VALUES ('VE', $1, $2, $3, '411', $4, $5, $6, $7)`,
       [date_facture, numeroFactureDefinitif, libelleEcriture, factureProforma.code_tiers, factureProforma.envoi_id, newDefinitiveId, montantEnAriary.toFixed(2)]
     );
-    // Écriture au crédit du compte de vente
     await client.query(
       `INSERT INTO ecritures (journal_code, date, numero_piece, libelle_operation, compte_general, envoi_id, facture_id, credit)
        VALUES ('VE', $1, $2, $3, '707', $4, $5, $6)`,
       [date_facture, numeroFactureDefinitif, libelleEcriture, factureProforma.envoi_id, newDefinitiveId, montantEnAriary.toFixed(2)]
     );
 
-    // Si tout a réussi, on valide la transaction
     await client.query('COMMIT');
     res.status(201).json(factureDefinitive);
 
   } catch (err) {
-    // En cas d'erreur, on annule tout
     await client.query('ROLLBACK');
     console.error(`Erreur lors de la conversion de la facture ID ${proformaId}:`, err);
     res.status(500).json({ error: "Erreur serveur lors de la conversion.", details: err.message });
   } finally {
-    // On libère le client de la base de données
     client.release();
   }
 });

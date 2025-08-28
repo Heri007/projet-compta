@@ -123,7 +123,6 @@ export default function App() {
         }
     }
 };
-  
 
   const handleAddClientAndEnvoi = async (clientData, envoiDataPartial) => {
     try {
@@ -180,7 +179,7 @@ export default function App() {
                             planComptable={planComptable} 
                             refreshData={fetchData} 
                         />;
-      case 'dashboard': return <Dashboard planComptable={planComptable} ecritures={ecritures} tiers={tiers} articles={articles} envois={envois} mouvements={mouvements} dateCloture={dateCloture} setPage={setPage} navigateToReport={navigateToReport} />;
+      case 'dashboard': return <Dashboard planComptable={planComptable} ecritures={ecritures} tiers={tiers} articles={articles} envois={envois} mouvements={mouvements} dateCloture={dateCloture} setPage={setPage} navigateToReport={navigateToReport} factures={factures} />;
       case 'entreprise': return <EntreprisePage />;
       case 'clients_ventes': return <ClientsVentesPage tiers={tiers} setPage={setPage} envois={envois} />;
       case 'fournisseurs_achats': return <FournisseursAchatsPage tiers={tiers} setPage={setPage} />;
@@ -191,7 +190,7 @@ export default function App() {
                   refreshData={fetchData} 
                 />;
       case 'envoi': 
-                return <EnvoiPage envois={envois} tiers={tiers} setPage={setPage} />;
+                return <EnvoiPage envois={envois} tiers={tiers} setPage={setPage} refreshData={fetchData} />;
       case 'suivi_exportation':
                 return <SuiviExportationPage
                             envoiId={subId}

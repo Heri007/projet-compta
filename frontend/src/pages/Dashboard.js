@@ -3,6 +3,7 @@ import PageHeader from '../components/PageHeader';
 import WidgetCard from '../components/WidgetCard';
 import { genererDonneesResultat } from '../utils/compteDeResultatHelper';
 import TauxDeChangeWidget from '../components/TauxDeChangeWidget';
+import { getStatusClasses } from '../utils/uiHelpers';
 
 const StatCard = ({ title, value, icon, color, onClick }) => (
   <button
@@ -24,10 +25,9 @@ const StatCard = ({ title, value, icon, color, onClick }) => (
   // et on choisit une couleur de texte sombre pour le contraste.
   const widgetHeaderStyle = "px-4 py-3 font-bold text-gray-800 bg-[#c5eafc]";
 
-const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], envois = [], factures = [], mouvements = [], setPage, navigateToReport }) => {    
-  
-  // --- CORRECTION DU BLOC useMemo ENTIER ---
+const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], envois = [], factures = [], mouvements = [], setPage, navigateToReport }) => {  // --- CORRECTION DU BLOC useMemo ENTIER ---
   const dashboardData = useMemo(() => {
+    console.log("--- Recalcul du Dashboard ---");
     // 1. Sécuriser les données (s'assurer que ce sont bien des tableaux)
     const safeEcritures = Array.isArray(ecritures) ? ecritures : [];
     const safeTiers = Array.isArray(tiers) ? tiers : [];
@@ -36,6 +36,15 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
     const safeFactures = Array.isArray(factures) ? factures : [];
     const safeMouvements = Array.isArray(mouvements) ? mouvements : [];
     const safePlanComptable = Array.isArray(planComptable) ? planComptable : [];
+
+    // Log pour vérifier que les données brutes sont bien là
+    console.log("Données reçues:", { 
+      nbEnvois: safeEnvois.length, 
+      nbFactures: safeFactures.length 
+    });
+    // Affichez un exemple de chaque pour le débogage
+    if (safeEnvois.length > 0) console.log("Exemple d'envoi:", safeEnvois[0]);
+    if (safeFactures.length > 0) console.log("Exemple de facture:", safeFactures[0]);
 
     // 2. Calculer le résultat net
     const resultatData = genererDonneesResultat(safePlanComptable, safeEcritures);
@@ -61,48 +70,42 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
 
     // 5. Préparer les envois récents enrichis (avec la logique de priorité à la facture définitive)
     const envoisRecentsEnrichis = safeEnvois.slice(0, 5).map(envoi => {
-      // Chercher la facture définitive en priorité
-      let factureAssociee = safeFactures.find(f => 
-        f.envoi_id === envoi.id && f.type_facture === 'Definitive'
+      console.log(`[Matching] Traitement de l'envoi ID: '${envoi.id}' (Nom: ${envoi.nom})`);
+      // CORRECTION : On s'assure que les IDs existent avant de comparer
+      const facturesAssociees = safeFactures.filter(f => 
+        f.envoi_id && envoi.id && f.envoi_id === envoi.id
       );
-      // Si aucune définitive n'est trouvée, chercher une proforma
-      if (!factureAssociee) {
-        factureAssociee = safeFactures.find(f => 
-          f.envoi_id === envoi.id && f.type_facture === 'Proforma'
-        );
+      // Log du résultat du matching
+      if (facturesAssociees.length > 0) {
+        console.log(`   -> SUCCÈS: ${facturesAssociees.length} facture(s) trouvée(s) pour l'envoi '${envoi.id}'`);
       }
       const clientAssocie = safeTiers.find(t => t.code === envoi.client_code);
 
       return { 
         ...envoi, 
-        facture: factureAssociee,
+        factures: facturesAssociees, 
         client: clientAssocie,
       };
     });
 
-    // 6. Retourner UN SEUL objet final avec toutes les données préparées
     return {
       resultatNet: resultatData.beneficeOuPerte || 0,
       envoisActifs: safeEnvois.filter(e => e.statut === 'actif').length,
       nombreArticles: safeArticles.length,
       totalTiers: safeTiers.length,
       dernieresOperations: dernieresOperationsUniques,
-      envoisRecents: envoisRecentsEnrichis, // Utiliser la liste enrichie
+      envoisRecents: envoisRecentsEnrichis,
       derniersMouvementsStock: stockWidgetData,
     };
 
   }, [planComptable, ecritures, tiers, articles, envois, mouvements, factures]);
-  const formatCurrency = (val) => `${(val || 0).toLocaleString('fr-FR')} Ar`;
 
-  // --- CORRECTION : NOUVELLE FONCTION POUR LES QUANTITÉS EN KG ---
+  const formatCurrency = (val) => `${(val || 0).toLocaleString('fr-FR')} Ar`;
   const formatQuantity = (val) => {
-    // S'assure que la valeur est un nombre
     const num = parseFloat(val);
-    // Si ce n'est pas un nombre valide ou si c'est zéro, n'affiche rien ou '0 Kg'
     if (isNaN(num)) return 'N/A';
-    // Formate le nombre sans décimales et ajoute l'unité
     return `${num.toLocaleString('fr-FR')} Kg`;
-};
+  };
 
   return (
     <div className="p-8">
@@ -168,66 +171,67 @@ const Dashboard = ({ planComptable, ecritures = [], tiers = [], articles = [], e
           </ul>
         </WidgetCard>
 
+        {/* --- MODIFICATION DU WIDGET "ENVOIS RÉCENTS" --- */}
         <WidgetCard title="Envois Récents" headerClassName={widgetHeaderStyle}>
-  <div className="h-48 overflow-y-auto">
-    <table className="min-w-full text-sm">
-      <thead className="sticky top-0 bg-white">
-        <tr>
-          {['Envoi', 'Article', 'Client', 'Facture'].map(h => 
-            <th key={h} className="py-2 px-2 text-left font-semibold text-gray-500">{h}</th>
-          )}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100">
-        {dashboardData.envoisRecents.length > 0 ? (
-          dashboardData.envoisRecents.map(envoi => (
-            <tr key={envoi.id}>
-              <td className="py-2 px-2">
-                <button 
-                  onClick={() => setPage('envoi')} 
-                  className="font-semibold text-blue-600 hover:underline text-left"
-                >
-                  {envoi.nom}
-                </button>
-              </td>
-              <td className="py-2 px-2">{envoi.designation}</td>
-              <td className="py-2 px-2">
-                {envoi.client ? (
-                  <button 
-                    onClick={() => setPage('tiers')} 
-                    className="hover:underline"
-                  >
-                    {envoi.client.nom}
-                  </button>
+          <div className="h-48 overflow-y-auto">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr>
+                  {['Envoi', 'Article', 'Client', 'Facture'].map(h => 
+                    <th key={h} className="py-2 px-2 text-left font-semibold text-gray-500">{h}</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {dashboardData.envoisRecents.length > 0 ? (
+                  dashboardData.envoisRecents.map(envoi => (
+                    <tr key={envoi.id}>
+                      <td className="py-2 px-2">
+                        <button onClick={() => setPage('envoi')} className="font-semibold text-blue-600 hover:underline text-left">
+                          {envoi.nom}
+                        </button>
+                      </td>
+                      <td className="py-2 px-2">{envoi.designation}</td>
+                      <td className="py-2 px-2">
+                        {envoi.client ? (
+                          <button onClick={() => setPage('tiers')} className="hover:underline">
+                            {envoi.client.nom}
+                          </button>
+                        ) : ( <span className="text-gray-400">Inconnu</span> )}
+                      </td>
+                      {/* --- MODIFICATION DE LA CELLULE FACTURE --- */}
+                      <td className="py-2 px-2">
+                        {envoi.factures && envoi.factures.length > 0 ? (
+                          // On crée un conteneur flex pour aligner les badges
+                          <div className="flex items-center gap-2">
+                            {envoi.factures.map(facture => (
+                              <button 
+                                key={facture.id}
+                                onClick={() => setPage('liste_ventes')}
+                                // Style conditionnel en fonction du type de facture
+                                className={`px-2 py-0.5 text-xs font-bold rounded-full transition-transform hover:scale-110 ${getStatusClasses(facture.type_facture)}`}
+                              >
+                                {facture.type_facture === 'Definitive' ? 'FD' : 'FP'}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Aucune</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
                 ) : (
-                  <span className="text-gray-400">Inconnu</span>
+                  <tr>
+                    <td colSpan="4" className="text-sm text-gray-400 text-center p-4">
+                      Aucun envoi récent.
+                    </td>
+                  </tr>
                 )}
-              </td>
-              <td className="py-2 px-2">
-                {envoi.facture ? (
-                  <button 
-                    onClick={() => setPage('liste_ventes')} 
-                    className="hover:underline"
-                  >
-                    {`${envoi.facture.numero_facture} (${envoi.facture.type_facture})`}
-                  </button>
-                ) : (
-                  <span className="text-gray-400">Aucune</span>
-                )}
-              </td>
-            </tr>
-          ))
-        ) : (
-          <tr>
-            <td colSpan="4" className="text-sm text-gray-400 text-center p-4">
-              Aucun envoi récent.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</WidgetCard>
+              </tbody>
+            </table>
+          </div>
+        </WidgetCard>
 
 <WidgetCard title="Derniers Mouvements de Stock" headerClassName={widgetHeaderStyle}>
           <div className="h-48 overflow-y-auto">

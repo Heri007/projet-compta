@@ -6,7 +6,7 @@ import FormulaireMouvementStock from '../components/FormulaireMouvementStock';
 
 // On ajoute "factures" à la liste des props reçues
 const ArticlesStocksPage = ({ articles = [], mouvements = [], factures = [], refreshData }) => {
-    const [activeTab, setActiveTab] = useState('liste');
+    const [activeTab, setActiveTab] = useState('mouvements');
     const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [isMouvementModalOpen, setIsMouvementModalOpen] = useState(false);
 
